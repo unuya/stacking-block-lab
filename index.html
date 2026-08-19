@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4f7f35">
+  <title>차곡차곡 쌓기 연구소</title>
+  <style>
+    :root {
+      --ink: #26301f;
+      --muted: #65705e;
+      --paper: #fffef8;
+      --line: #493723;
+      --green: #5a9139;
+      --green-dark: #376425;
+      --sand: #e3c88f;
+      --sand-light: #f2e4bd;
+      --wood: #d49a4b;
+      --wood-light: #f1ca70;
+      --wood-dark: #8b512b;
+      --red: #c84f3d;
+      --blue: #3e7fc4;
+      --shadow: 5px 5px 0 rgba(54, 43, 29, .2);
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 320px; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #edf1e6;
+      font-family: "Pretendard", "Noto Sans KR", "NanumGothic", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      line-height: 1.45;
+    }
+    button { font: inherit; }
+    button:focus-visible { outline: 4px solid #276fc5; outline-offset: 3px; }
+
+    .app { width: min(1480px, calc(100% - 28px)); margin: 0 auto; padding: 15px 0 34px; }
+    .titlebar {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      border-bottom: 5px solid var(--green-dark);
+    }
+    .titlebar h1 { margin: 0; font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -.045em; }
+
+    .studio {
+      display: grid;
+      grid-template-columns: minmax(520px, 1.04fr) minmax(560px, .96fr);
+      gap: 18px;
+      margin-top: 18px;
+      align-items: stretch;
+    }
+    .panel { min-width: 0; overflow: hidden; background: var(--paper); border: 4px solid var(--line); box-shadow: var(--shadow); }
+    .panel-head {
+      min-height: 66px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 14px;
+      color: white;
+      background: var(--green);
+      border-bottom: 4px solid var(--line);
+    }
+    .panel-head h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.025em; }
+    .panel-head p { margin: 2px 0 0; font-size: 12px; font-weight: 750; opacity: .92; }
+    .count { flex: none; padding: 6px 10px; color: #402d1b; background: var(--wood-light); border: 3px solid #604025; font-weight: 800; box-shadow: 3px 3px 0 rgba(44,31,19,.2); }
+    .count strong { font-size: 20px; }
+
+    .scene { position: relative; background: #a9ddef; border-bottom: 4px solid var(--line); overflow: hidden; touch-action: none; user-select: none; }
+    #worldCanvas { display: block; width: 100%; aspect-ratio: 1.28; cursor: grab; touch-action: none; }
+    #worldCanvas.dragging { cursor: grabbing; }
+    .hold-box { position: absolute; top: 11px; right: 11px; width: 112px; padding: 6px; color: white; background: rgba(38,43,29,.84); border: 3px solid #28301f; opacity: 0; pointer-events: none; }
+    .hold-box.show { opacity: 1; }
+    .hold-box span { display: block; margin-bottom: 4px; text-align: center; font-size: 11px; font-weight: 800; }
+    .hold-track { height: 9px; background: #20251b; }
+    .hold-bar { width: 0; height: 100%; background: var(--red); }
+
+    .world-controls { padding: 11px 13px 13px; background: var(--sand); }
+    .control-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+    .buttons { display: flex; gap: 7px; flex-wrap: wrap; }
+    .btn {
+      min-height: 40px;
+      padding: 7px 11px;
+      color: #312417;
+      background: #f4dd9e;
+      border: 3px solid #5b4028;
+      border-radius: 0;
+      box-shadow: 3px 3px 0 rgba(65,45,27,.25);
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform .08s, box-shadow .08s;
+    }
+    .btn:hover { background: #ffe9ad; }
+    .btn:active { transform: translate(3px,3px); box-shadow: none; }
+    .btn.primary { color: white; background: var(--green-dark); border-color: #243f1a; }
+    .btn.blue { color: white; background: var(--blue); border-color: #254e7d; }
+    .btn.red { color: white; background: #aa4938; border-color: #623126; }
+    .presets { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 2px solid rgba(101,73,38,.35); }
+    .presets > span { color: #59452f; font-size: 12px; font-weight: 800; }
+    .presets .btn { min-height: 34px; padding: 5px 9px; font-size: 12px; }
+
+    .practice { display: flex; flex-direction: column; }
+    .grids { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; padding: 12px; background: var(--sand-light); }
+    .view-card { min-width: 0; padding: 8px; background: #fffdf1; border: 3px solid #685039; box-shadow: 3px 3px 0 rgba(72,51,29,.16); }
+    .view-card.correct-card { border-color: #2f762e; box-shadow: 3px 3px 0 rgba(47,118,46,.25); }
+    .view-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+    .view-title h3 { margin: 0; font-size: 14px; font-weight: 800; }
+    .view-arrow { width: 27px; height: 27px; display: grid; place-items: center; flex: none; color: white; background: var(--blue); border: 2px solid #254e7d; font-weight: 800; }
+    .draw-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0,1fr));
+      background-color: white;
+      background-image: linear-gradient(rgba(64,106,130,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(64,106,130,.1) 1px, transparent 1px);
+      background-size: 13px 13px;
+      border: 3px solid #657b89;
+    }
+    .cell { aspect-ratio: 1; min-width: 0; padding: 0; background: rgba(255,255,255,.56); border: 1px solid #8096a2; border-radius: 0; cursor: pointer; }
+    .cell:hover { background: #fff1b7; }
+    .cell.on { background: var(--wood-light); box-shadow: inset 0 0 0 4px var(--wood-dark); }
+    .cell.correct { background: #85cb71; box-shadow: inset 0 0 0 4px #357234; }
+    .cell.wrong { background: #eb8871; box-shadow: inset 0 0 0 4px #a6372c; }
+    .cell.missed { background: repeating-linear-gradient(135deg,#fff4cb 0 7px,#e7654f 7px 13px); box-shadow: inset 0 0 0 3px #a6372c; }
+    .cell.answer { background: #8fbde8; box-shadow: inset 0 0 0 4px #2f6eae; }
+
+    .practice-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 11px 12px; background: var(--sand); border-top: 4px solid var(--line); }
+    .feedback { min-height: 53px; display: flex; align-items: center; gap: 9px; padding: 9px 12px; color: #524a3b; background: #fff7cf; border-top: 3px solid #785d3a; font-size: 13px; font-weight: 750; }
+    .feedback.good { color: #245728; background: #dff3cf; }
+    .feedback.try { color: #84392d; background: #ffe0d4; }
+    .feedback b { width: 29px; height: 29px; display: grid; place-items: center; flex: none; color: white; background: var(--green); border: 2px solid var(--green-dark); }
+    .feedback.try b { background: var(--red); border-color: #843126; }
+
+    @media (max-width: 1120px) {
+      .studio { grid-template-columns: 1fr; }
+      #worldCanvas { aspect-ratio: 1.7; }
+      .grids { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    }
+    @media (max-width: 820px) {
+      #worldCanvas { aspect-ratio: 1.25; }
+      .grids { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .control-row { align-items: stretch; flex-direction: column; }
+    }
+    @media (max-width: 540px) {
+      .app { width: min(100% - 16px,1480px); padding-top: 7px; }
+      .titlebar { min-height: 55px; }
+      .panel-head { padding-inline: 10px; }
+      .panel-head h2 { font-size: 17px; }
+      #worldCanvas { aspect-ratio: 1; }
+      .buttons { display: grid; grid-template-columns: repeat(3,1fr); }
+      .btn { padding-inline: 7px; font-size: 12px; }
+      .grids { grid-template-columns: 1fr; }
+      .practice-actions { grid-template-columns: 1fr 1fr; }
+      .practice-actions .primary { grid-column: 1 / -1; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="titlebar"><h1>차곡차곡 쌓기 연구소</h1></header>
+
+    <main class="studio">
+      <section class="panel" aria-labelledby="worldTitle">
+        <div class="panel-head">
+          <div><h2 id="worldTitle">입체 모양</h2><p>블록을 직접 쌓고 돌려 보세요.</p></div>
+          <div class="count">블록 <strong id="cubeCount">0</strong>개</div>
+        </div>
+        <div class="scene">
+          <canvas id="worldCanvas" aria-label="블록을 직접 쌓고 회전시키는 5 곱하기 5 입체 공간"></canvas>
+          <div class="hold-box" id="holdBox" aria-hidden="true">
+            <span>블록 깨는 중</span>
+            <div class="hold-track"><div class="hold-bar" id="holdBar"></div></div>
+          </div>
+        </div>
+        <div class="world-controls">
+          <div class="control-row">
+            <div class="buttons">
+              <button class="btn" id="undoBtn">↶ 되돌리기</button>
+              <button class="btn" id="resetViewBtn">◎ 시점 맞추기</button>
+              <button class="btn red" id="clearBtn">모두 지우기</button>
+            </div>
+          </div>
+          <div class="presets">
+            <span>쉬운 모양</span>
+            <button class="btn" data-preset="stairs">계단</button>
+            <button class="btn" data-preset="corner">기역</button>
+            <button class="btn" data-preset="mountain">작은 산</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel practice" aria-labelledby="practiceTitle">
+        <div class="panel-head">
+          <div><h2 id="practiceTitle">네 방향 모눈종이</h2><p>보이는 칸을 눌러 색칠하세요.</p></div>
+          <div class="count"><strong>5×5</strong></div>
+        </div>
+        <div class="grids">
+          <article class="view-card" data-card="top">
+            <div class="view-title"><h3>위에서 본 모습</h3><span class="view-arrow">↓</span></div>
+            <div class="draw-grid" data-view="top" aria-label="위에서 본 모습을 그리는 5 곱하기 5 모눈종이"></div>
+          </article>
+          <article class="view-card" data-card="front">
+            <div class="view-title"><h3>앞에서 본 모습</h3><span class="view-arrow">↑</span></div>
+            <div class="draw-grid" data-view="front" aria-label="앞에서 본 모습을 그리는 5 곱하기 5 모눈종이"></div>
+          </article>
+          <article class="view-card" data-card="left">
+            <div class="view-title"><h3>왼쪽에서 본 모습</h3><span class="view-arrow">→</span></div>
+            <div class="draw-grid" data-view="left" aria-label="왼쪽에서 본 모습을 그리는 5 곱하기 5 모눈종이"></div>
+          </article>
+          <article class="view-card" data-card="right">
+            <div class="view-title"><h3>오른쪽에서 본 모습</h3><span class="view-arrow">←</span></div>
+            <div class="draw-grid" data-view="right" aria-label="오른쪽에서 본 모습을 그리는 5 곱하기 5 모눈종이"></div>
+          </article>
+        </div>
+        <div class="practice-actions">
+          <button class="btn primary" id="checkBtn">✓ 네 방향 확인하기</button>
+          <button class="btn blue" id="answerBtn">정답 보기</button>
+          <button class="btn" id="eraseBtn">그림 지우기</button>
+        </div>
+        <div class="feedback" id="feedback" role="status" aria-live="polite"><b>✎</b><span>입체 모양을 돌려 보고 모눈종이에 그려 보세요.</span></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+      const SIZE = 5, MAX_HEIGHT = 5, HOLD_MS = 620;
+      const views = ['top','front','left','right'];
+      const viewNames = { top:'위', front:'앞', left:'왼쪽', right:'오른쪽' };
+      const presets = {
+        stairs: [[0,0,0,0,0],[0,0,1,0,0],[0,1,2,3,0],[0,1,1,1,0],[0,0,0,0,0]],
+        corner: [[0,0,0,0,0],[0,2,0,0,0],[0,2,0,0,0],[0,2,1,1,0],[0,0,0,0,0]],
+        mountain: [[0,0,0,0,0],[0,0,1,0,0],[0,1,3,1,0],[0,0,1,0,0],[0,0,0,0,0]]
+      };
+      let heights = presets.stairs.map(row => [...row]);
+      let history = [], yaw = Math.PI/4, pitch = .54, hitRegions = [], hover = null;
+      let pointer = null, particles = [], flash = null, checked = false, showingAnswer = false;
+      const drawings = Object.fromEntries(views.map(view => [view, Array(SIZE*SIZE).fill(false)]));
+      const canvas = document.getElementById('worldCanvas');
+      const ctx = canvas.getContext('2d');
+      const countEl = document.getElementById('cubeCount');
+      const holdBox = document.getElementById('holdBox');
+      const holdBar = document.getElementById('holdBar');
+      const feedback = document.getElementById('feedback');
+      const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
+      const total = () => heights.flat().reduce((sum,n) => sum+n,0);
+      const copyHeights = () => heights.map(row => [...row]);
+
+      function setFeedback(type, icon, text) {
+        feedback.className = `feedback${type === 'idle' ? '' : ' '+type}`;
+        feedback.innerHTML = `<b>${icon}</b><span>${text}</span>`;
+      }
+      function save() { history.push(copyHeights()); if (history.length > 30) history.shift(); }
+      function resetPractice(text='모양이 바뀌었어요. 네 방향을 다시 그려 보세요.') {
+        views.forEach(v => drawings[v].fill(false));
+        checked = false; showingAnswer = false;
+        document.getElementById('answerBtn').textContent = '정답 보기';
+        setFeedback('idle','✎',text); renderGrids();
+      }
+      function modelChanged(text) { countEl.textContent = total(); resetPractice(text); }
+
+      function answerFor(view) {
+        const result = Array.from({length:SIZE},() => Array(SIZE).fill(false));
+        if (view === 'top') {
+          for (let y=0;y<SIZE;y++) for (let x=0;x<SIZE;x++) result[y][x] = heights[y][x] > 0;
+          return result.flat();
+        }
+        let profile;
+        if (view === 'front') profile = Array.from({length:SIZE},(_,x) => Math.max(...heights.map(row => row[x])));
+        else {
+          const side = heights.map(row => Math.max(...row));
+          profile = view === 'left' ? [...side].reverse() : side;
+        }
+        profile.forEach((h,col) => { for (let level=0;level<h;level++) result[SIZE-1-level][col] = true; });
+        return result.flat();
+      }
+
+      function makeGrids() {
+        document.querySelectorAll('[data-view]').forEach(grid => {
+          const view = grid.dataset.view;
+          for (let i=0;i<SIZE*SIZE;i++) {
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = 'cell';
+            button.addEventListener('click',() => {
+              drawings[view][i] = !drawings[view][i]; checked = false; showingAnswer = false;
+              document.getElementById('answerBtn').textContent = '정답 보기';
+              setFeedback('idle','✎',`${viewNames[view]}에서 본 모습을 그리고 있어요.`); renderGrids();
+            });
+            grid.appendChild(button);
+          }
+        });
+      }
+      function renderGrids() {
+        views.forEach(view => {
+          const answer = answerFor(view), drawing = drawings[view];
+          const grid = document.querySelector(`[data-view="${view}"]`);
+          const card = document.querySelector(`[data-card="${view}"]`);
+          const correct = drawing.every((v,i) => v === answer[i]);
+          card.classList.toggle('correct-card',checked && correct);
+          [...grid.children].forEach((cell,i) => {
+            let state = drawing[i] ? ' on' : '';
+            if (showingAnswer) state = answer[i] ? ' answer' : '';
+            else if (checked) {
+              if (drawing[i] && answer[i]) state = ' correct';
+              else if (drawing[i] && !answer[i]) state = ' wrong';
+              else if (!drawing[i] && answer[i]) state = ' missed';
+            }
+            cell.className = `cell${state}`;
+            cell.setAttribute('aria-pressed',String(drawing[i]));
+            cell.setAttribute('aria-label',`${Math.floor(i/SIZE)+1}번째 줄 ${i%SIZE+1}번째 칸${drawing[i]?', 색칠함':''}`);
+          });
+        });
+      }
+      function checkAll() {
+        checked = true; showingAnswer = false; document.getElementById('answerBtn').textContent = '정답 보기';
+        let right=0, diff=0;
+        views.forEach(view => {
+          const answer=answerFor(view), drawing=drawings[view];
+          const misses=drawing.reduce((sum,v,i)=>sum+(v!==answer[i]?1:0),0);
+          if (!misses) right++; diff+=misses;
+        });
+        if (right===4) setFeedback('good','★','네 방향을 모두 바르게 그렸어요!');
+        else setFeedback('try','!',`${right}개 방향이 맞아요. 줄무늬 ${diff}칸을 다시 살펴보세요.`);
+        renderGrids();
+      }
+
+      function metrics() {
+        const rect=canvas.getBoundingClientRect(), ratio=Math.min(devicePixelRatio||1,2);
+        const w=Math.max(1,Math.round(rect.width*ratio)), h=Math.max(1,Math.round(rect.height*ratio));
+        if (canvas.width!==w || canvas.height!==h) { canvas.width=w; canvas.height=h; }
+        ctx.setTransform(ratio,0,0,ratio,0,0);
+        const scale=Math.max(30,Math.min(rect.width/(SIZE*2),rect.height/(SIZE*1.04+MAX_HEIGHT*.72)));
+        return {w:rect.width,h:rect.height,scale,cx:rect.width/2,cy:rect.height*.63};
+      }
+      function project(x,y,z,m) {
+        const c=SIZE/2, wx=x-c, wy=y-c;
+        const across=wx*Math.cos(yaw)-wy*Math.sin(yaw), depth=wx*Math.sin(yaw)+wy*Math.cos(yaw);
+        return {x:m.cx+across*m.scale,y:m.cy+depth*Math.sin(pitch)*m.scale-z*Math.cos(pitch)*m.scale};
+      }
+      function path(points) {
+        ctx.beginPath(); ctx.moveTo(points[0].x,points[0].y);
+        for (let i=1;i<points.length;i++) ctx.lineTo(points[i].x,points[i].y);
+        ctx.closePath();
+      }
+      function inside(p,poly) {
+        let hit=false;
+        for (let i=0,j=poly.length-1;i<poly.length;j=i++) {
+          const a=poly[i],b=poly[j];
+          if (((a.y>p.y)!==(b.y>p.y)) && p.x<(b.x-a.x)*(p.y-a.y)/((b.y-a.y)||.0001)+a.x) hit=!hit;
+        }
+        return hit;
+      }
+      function pick(p) { for (let i=hitRegions.length-1;i>=0;i--) if (inside(p,hitRegions[i].points)) return hitRegions[i]; return null; }
+      function pointOf(event) { const r=canvas.getBoundingClientRect(); return {x:event.clientX-r.left,y:event.clientY-r.top}; }
+      function blockColor(face,x,y,z) {
+        const light=(x+y+z)%2===0;
+        if (face==='top') return light?'#f3d17a':'#e8bd5e';
+        if (face==='x+') return light?'#c77c3d':'#b46a35';
+        if (face==='x-') return light?'#a45f32':'#91512b';
+        if (face==='y+') return light?'#a65b30':'#934d29';
+        return light?'#bf7138':'#a96131';
+      }
+
+      function drawCracks(poly,progress) {
+        if (progress<.12) return;
+        const c=poly.reduce((a,p)=>({x:a.x+p.x/poly.length,y:a.y+p.y/poly.length}),{x:0,y:0});
+        ctx.save(); path(poly); ctx.clip(); ctx.strokeStyle=`rgba(59,29,20,${.3+progress*.7})`; ctx.lineWidth=2+progress*2;
+        const n=Math.max(2,Math.floor(progress*8));
+        for (let i=0;i<n;i++) { const a=i*2.4,l=10+progress*27; ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+Math.cos(a)*l*.45,c.y+Math.sin(a)*l*.45);ctx.lineTo(c.x+Math.cos(a+.22)*l,c.y+Math.sin(a+.22)*l);ctx.stroke(); }
+        ctx.restore();
+      }
+      function drawCompass(m) {
+        const size=clamp(m.w*.05,27,38),cx=m.w-size-15,cy=m.h-size-15;
+        ctx.fillStyle='rgba(255,254,238,.9)';ctx.strokeStyle='#59402a';ctx.lineWidth=3;ctx.fillRect(cx-size,cy-size,size*2,size*2);ctx.strokeRect(cx-size,cy-size,size*2,size*2);
+        const dx=-Math.sin(yaw),dy=Math.cos(yaw)*Math.sin(pitch),len=Math.hypot(dx,dy)||1,ex=cx+dx/len*size*.6,ey=cy+dy/len*size*.6;
+        ctx.strokeStyle='#c84f3d';ctx.fillStyle='#c84f3d';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
+        const a=Math.atan2(ey-cy,ex-cx);ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-Math.cos(a-.55)*9,ey-Math.sin(a-.55)*9);ctx.lineTo(ex-Math.cos(a+.55)*9,ey-Math.sin(a+.55)*9);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#4b3522';ctx.font='900 12px Malgun Gothic';ctx.textAlign='center';ctx.fillText('앞',cx,cy+size-5);
+      }
+
+      function render(time=performance.now()) {
+        const m=metrics(),sky=ctx.createLinearGradient(0,0,0,m.h);
+        sky.addColorStop(0,'#8bcfee');sky.addColorStop(.72,'#ccecf4');sky.addColorStop(1,'#e4f0cf');ctx.fillStyle=sky;ctx.fillRect(0,0,m.w,m.h);
+        ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillRect(m.w*.08,m.h*.15,m.w*.15,14);ctx.fillRect(m.w*.12,m.h*.15-14,m.w*.08,14);ctx.fillRect(m.w*.72,m.h*.2,m.w*.13,12);
+        hitRegions=[];
+        const ground=[];
+        for (let y=0;y<SIZE;y++) for (let x=0;x<SIZE;x++) ground.push({x,y,depth:(x+.5)*Math.sin(yaw)+(y+.5)*Math.cos(yaw),points:[project(x,y,0,m),project(x+1,y,0,m),project(x+1,y+1,0,m),project(x,y+1,0,m)]});
+        ground.sort((a,b)=>a.depth-b.depth).forEach(tile=>{path(tile.points);ctx.fillStyle=(tile.x+tile.y)%2?'#69a842':'#79b64c';ctx.fill();ctx.strokeStyle='#3b6d28';ctx.lineWidth=2;ctx.stroke();hitRegions.push({kind:'ground',...tile});});
+        const camX=Math.sin(yaw),camY=Math.cos(yaw),faces=[];
+        const defs=[
+          {name:'top',n:[0,0,1],v:(x,y,z)=>[[x,y,z+1],[x+1,y,z+1],[x+1,y+1,z+1],[x,y+1,z+1]]},
+          {name:'x+',n:[1,0,0],v:(x,y,z)=>[[x+1,y,z],[x+1,y+1,z],[x+1,y+1,z+1],[x+1,y,z+1]]},
+          {name:'x-',n:[-1,0,0],v:(x,y,z)=>[[x,y+1,z],[x,y,z],[x,y,z+1],[x,y+1,z+1]]},
+          {name:'y+',n:[0,1,0],v:(x,y,z)=>[[x+1,y+1,z],[x,y+1,z],[x,y+1,z+1],[x+1,y+1,z+1]]},
+          {name:'y-',n:[0,-1,0],v:(x,y,z)=>[[x,y,z],[x+1,y,z],[x+1,y,z+1],[x,y,z+1]]}
+        ];
+        const exposed=(f,x,y,z)=>f==='top'?z===heights[y][x]-1:f==='x+'?(x===SIZE-1||heights[y][x+1]<=z):f==='x-'?(x===0||heights[y][x-1]<=z):f==='y+'?(y===SIZE-1||heights[y+1][x]<=z):(y===0||heights[y-1][x]<=z);
+        for (let y=0;y<SIZE;y++) for (let x=0;x<SIZE;x++) for (let z=0;z<heights[y][x];z++) defs.forEach(d=>{
+          if ((d.n[2]>0||d.n[0]*camX+d.n[1]*camY>.001)&&exposed(d.name,x,y,z)) faces.push({kind:'cube',face:d.name,x,y,z,depth:(x+.5)*camX+(y+.5)*camY+(z+.5)*.75,points:d.v(x,y,z).map(p=>project(p[0],p[1],p[2],m))});
+        });
+        faces.sort((a,b)=>a.depth-b.depth||a.z-b.z).forEach(face=>{
+          path(face.points);ctx.fillStyle=blockColor(face.face,face.x,face.y,face.z);ctx.fill();ctx.strokeStyle='#51311d';ctx.lineWidth=Math.max(1.5,m.scale/30);ctx.stroke();
+          ctx.save();path(face.points);ctx.clip();ctx.globalAlpha=.16;ctx.fillStyle=face.face==='top'?'#fff8bf':'#432719';const p=face.points[0],s=Math.max(3,m.scale*.08);ctx.fillRect(p.x+s,p.y+s,s,s);ctx.restore();hitRegions.push(face);
+        });
+        if (hover&&!pointer) { const h=[...hitRegions].reverse().find(r=>r.kind===hover.kind&&r.x===hover.x&&r.y===hover.y);if(h){path(h.points);ctx.fillStyle='rgba(255,250,180,.16)';ctx.fill();ctx.strokeStyle='#fff5a8';ctx.lineWidth=3;ctx.stroke();} }
+        if (pointer?.hold&&!pointer.dragging&&!pointer.broken) {
+          const progress=clamp((time-pointer.started)/HOLD_MS,0,1);holdBox.classList.add('show');holdBar.style.width=`${progress*100}%`;
+          const target=[...hitRegions].reverse().find(r=>r.kind==='cube'&&r.x===pointer.hold.x&&r.y===pointer.hold.y);if(target)drawCracks(target.points,progress);if(progress>=1)breakBlock();
+        } else { holdBox.classList.remove('show');holdBar.style.width='0%'; }
+        if (flash&&time-flash.time<220) { const p=project(flash.x+.5,flash.y+.5,flash.z+1,m),a=1-(time-flash.time)/220;ctx.strokeStyle=`rgba(255,250,170,${a})`;ctx.lineWidth=4;ctx.strokeRect(p.x-m.scale*.25,p.y-m.scale*.25,m.scale*.5,m.scale*.5); }
+        particles=particles.filter(p=>time-p.start<700);particles.forEach(p=>{const age=(time-p.start)/1000;ctx.globalAlpha=1-age/.7;ctx.fillStyle=p.color;ctx.fillRect(p.x+p.vx*age,p.y+p.vy*age+250*age*age,p.size,p.size);});ctx.globalAlpha=1;
+        drawCompass(m);requestAnimationFrame(render);
+      }
+
+      function addBlock(target) {
+        if (!target) return;
+        if (heights[target.y][target.x]>=MAX_HEIGHT) { setFeedback('try','!',`한 칸에는 ${MAX_HEIGHT}개까지 쌓을 수 있어요.`);return; }
+        save();heights[target.y][target.x]++;flash={x:target.x,y:target.y,z:heights[target.y][target.x]-1,time:performance.now()};modelChanged('블록을 쌓았어요.');
+      }
+      function breakBlock() {
+        if (!pointer||pointer.broken||!pointer.hold) return;
+        const {x,y}=pointer.hold;if (heights[y][x]<=0)return;save();const m=metrics(),p=project(x+.5,y+.5,heights[y][x],m);heights[y][x]--;pointer.broken=true;pointer.hold=null;
+        const colors=['#f1ca70','#c77c3d','#8b512b','#69a842'];for(let i=0;i<20;i++)particles.push({x:p.x,y:p.y,start:performance.now(),vx:(Math.random()-.5)*170,vy:-50-Math.random()*145,size:4+Math.random()*7,color:colors[i%4]});
+        if(navigator.vibrate)navigator.vibrate(45);modelChanged('블록 한 개를 깨뜨렸어요.');
+      }
+      canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=pointOf(e),target=pick(p);pointer={id:e.pointerId,start:p,last:p,started:performance.now(),target,hold:target?.kind==='cube'?{x:target.x,y:target.y}:null,dragging:false,broken:false};canvas.setPointerCapture(e.pointerId);});
+      canvas.addEventListener('pointermove',e=>{const p=pointOf(e);if(!pointer||pointer.id!==e.pointerId){const t=pick(p);hover=t?{kind:t.kind,x:t.x,y:t.y}:null;return;}if(Math.hypot(p.x-pointer.start.x,p.y-pointer.start.y)>7){pointer.dragging=true;pointer.hold=null;canvas.classList.add('dragging');}if(pointer.dragging){yaw-=(p.x-pointer.last.x)*.012;pitch=clamp(pitch+(p.y-pointer.last.y)*.008,.18,Math.PI/2);}pointer.last=p;});
+      function pointerEnd(e){if(!pointer||pointer.id!==e.pointerId)return;const state=pointer;pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');if(!state.dragging&&!state.broken)addBlock(state.target);}
+      canvas.addEventListener('pointerup',pointerEnd);
+      canvas.addEventListener('pointercancel',e=>{if(pointer?.id===e.pointerId)pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');});
+      canvas.addEventListener('pointerleave',()=>{if(!pointer)hover=null;});canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+      document.getElementById('undoBtn').addEventListener('click',()=>{const before=history.pop();if(!before){setFeedback('try','!','되돌릴 블록이 없어요.');return;}heights=before;modelChanged('바로 전 모양으로 되돌렸어요.');});
+      document.getElementById('resetViewBtn').addEventListener('click',()=>{yaw=Math.PI/4;pitch=.54;setFeedback('idle','◎','처음 시점으로 돌아왔어요. 빨간 화살표가 앞쪽이에요.');});
+      document.getElementById('clearBtn').addEventListener('click',()=>{if(!total())return;save();heights=Array.from({length:SIZE},()=>Array(SIZE).fill(0));modelChanged('블록을 모두 치웠어요.');});
+      document.querySelectorAll('[data-preset]').forEach(btn=>btn.addEventListener('click',()=>{save();heights=presets[btn.dataset.preset].map(row=>[...row]);modelChanged(`${btn.textContent} 모양을 불러왔어요.`);}));
+      document.getElementById('checkBtn').addEventListener('click',checkAll);
+      document.getElementById('answerBtn').addEventListener('click',e=>{showingAnswer=!showingAnswer;checked=false;e.currentTarget.textContent=showingAnswer?'내 그림 보기':'정답 보기';setFeedback('idle','눈',showingAnswer?'파란 칸이 정답이에요.':'내 그림으로 돌아왔어요.');renderGrids();});
+      document.getElementById('eraseBtn').addEventListener('click',()=>{views.forEach(v=>drawings[v].fill(false));checked=false;showingAnswer=false;document.getElementById('answerBtn').textContent='정답 보기';setFeedback('idle','✎','모눈종이를 모두 지웠어요.');renderGrids();});
+
+      makeGrids();countEl.textContent=total();renderGrids();requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>
