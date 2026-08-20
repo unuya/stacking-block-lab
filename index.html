@@ -154,9 +154,11 @@
     }
     .btn:hover { background: #ffe9ad; }
     .btn:active { transform: translate(3px,3px); box-shadow: none; }
+    .btn:disabled { opacity: .48; cursor: not-allowed; transform: none; box-shadow: 2px 2px 0 rgba(65,45,27,.18); }
     .btn.primary { color: white; background: var(--green-dark); border-color: #243f1a; }
     .btn.blue { color: white; background: var(--blue); border-color: #254e7d; }
     .btn.red { color: white; background: #aa4938; border-color: #623126; }
+    .btn.registered { color: white; background: #4f8333; border-color: #2e5820; }
     .presets { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px; padding-top: 8px; border-top: 2px solid rgba(101,73,38,.35); }
     .presets > span { color: #59452f; font-size: 12px; font-weight: 800; }
     .presets .btn { min-height: 34px; padding: 5px 9px; font-size: 12px; }
@@ -394,11 +396,12 @@
             <span>아래의 카메라 켜기 버튼을 눌러 주세요.</span>
           </div>
           <div class="camera-direction" id="cameraDirectionFeedback" role="status" aria-live="polite">
-            <b>찾는 중</b><span>카메라를 켜고 쌓기나무를 화면 가운데에 놓아 주세요.</span>
+            <b>등록 준비</b><span>카메라를 켠 뒤 쌓기나무의 앞 모습을 등록해 주세요.</span>
           </div>
         </div>
         <div class="camera-controls">
           <button type="button" class="btn primary" id="startCameraBtn">카메라 켜기</button>
+          <button type="button" class="btn blue" id="registerFrontBtn" disabled>앞 모습 등록</button>
           <button type="button" class="btn" id="switchCameraBtn">카메라 전환</button>
           <button type="button" class="btn red" id="stopCameraBtn">카메라 끄기</button>
         </div>
@@ -536,6 +539,7 @@
       const cameraFeedback = document.getElementById('cameraFeedback');
       const cameraGridFeedback = document.getElementById('cameraGridFeedback');
       const cameraDirectionFeedback = document.getElementById('cameraDirectionFeedback');
+      const registerFrontBtn = document.getElementById('registerFrontBtn');
       const canvas = document.getElementById('worldCanvas');
       const ctx = canvas.getContext('2d');
       const countEl = document.getElementById('cubeCount');
@@ -549,7 +553,7 @@
       const copyHeights = () => heights.map(row => [...row]);
       let cameraStream = null, cameraFacing = 'environment', cameraAnalysisTimer = null;
       let orientationReading = null, orientationListening = false, orientationPermission = 'unknown';
-      let detectionConfidence = 0, cameraDirectionKey = '';
+      let detectionConfidence = 0, cameraDirectionKey = '', frontReference = null;
       const analysisCanvas = document.createElement('canvas');
       analysisCanvas.width = 160; analysisCanvas.height = 120;
       const analysisCtx = analysisCanvas.getContext('2d',{willReadFrequently:true});
@@ -572,8 +576,8 @@
         cameraDirectionFeedback.innerHTML=`<b>${label}</b><span>${text}</span>`;
       }
       function onDeviceOrientation(event) {
-        if (event.beta==null||event.gamma==null) return;
-        orientationReading={beta:event.beta,gamma:event.gamma,time:performance.now()};
+        if (event.alpha==null||event.beta==null||event.gamma==null) return;
+        orientationReading={alpha:event.alpha,beta:event.beta,gamma:event.gamma,absolute:event.absolute,time:performance.now()};
       }
       async function enableOrientation() {
         if (orientationListening) return true;
@@ -592,18 +596,25 @@
         window.removeEventListener('deviceorientation',onDeviceOrientation);
         orientationListening=false;orientationReading=null;
       }
-      function analyzeCameraFrame() {
-        if (!cameraStream||cameraVideo.readyState<2||!analysisCtx) return;
+      function hueOf(r,g,b) {
+        const max=Math.max(r,g,b),min=Math.min(r,g,b),range=max-min;
+        if(!range)return 0;
+        let hue=max===r?((g-b)/range)%6:max===g?(b-r)/range+2:(r-g)/range+4;
+        hue*=60;return hue<0?hue+360:hue;
+      }
+      function readCameraFeatures(keepImage=false) {
+        if(!cameraStream||cameraVideo.readyState<2||!analysisCtx)return null;
         const w=analysisCanvas.width,h=analysisCanvas.height;
         analysisCtx.drawImage(cameraVideo,0,0,w,h);
-        const pixels=analysisCtx.getImageData(0,0,w,h).data;
+        const imageData=analysisCtx.getImageData(0,0,w,h),pixels=imageData.data;
         let br=0,bg=0,bb=0,bn=0;
         for(let y=0;y<h;y+=2)for(let x=0;x<w;x+=2){
           if(x>14&&x<w-15&&y>12&&y<h-13)continue;
           const i=(y*w+x)*4;br+=pixels[i];bg+=pixels[i+1];bb+=pixels[i+2];bn++;
         }
         br/=bn;bg/=bn;bb/=bn;
-        let objectPixels=0,centerPixels=0,centerObject=0,strongEdges=0,totalPixels=0;
+        const histogram=Array(20).fill(0);
+        let histogramTotal=0,objectPixels=0,centerPixels=0,centerObject=0,strongEdges=0,totalPixels=0;
         const x0=22,x1=w-22,y0=14,y1=h-12;
         for(let y=y0+1;y<y1;y++)for(let x=x0+1;x<x1;x++){
           const i=(y*w+x)*4,left=i-4,up=i-w*4;
@@ -614,32 +625,85 @@
           const upGray=pixels[up]*.299+pixels[up+1]*.587+pixels[up+2]*.114;
           const edge=Math.abs(gray-leftGray)+Math.abs(gray-upGray);
           const isObject=distance>48&&gray>24&&gray<247;
-          if(isObject)objectPixels++;
+          if(isObject){
+            objectPixels++;
+            histogram[Math.min(7,Math.floor(gray/32))]++;histogramTotal++;
+            const range=Math.max(r,g,b)-Math.min(r,g,b);
+            if(range>22){histogram[8+Math.min(11,Math.floor(hueOf(r,g,b)/30))]++;histogramTotal++;}
+          }
           if(edge>58)strongEdges++;
           if(x>w*.34&&x<w*.66&&y>h*.28&&y<h*.75){centerPixels++;if(isObject)centerObject++;}
           totalPixels++;
         }
+        if(histogramTotal)for(let i=0;i<histogram.length;i++)histogram[i]/=histogramTotal;
         const objectRatio=objectPixels/totalPixels,edgeRatio=strongEdges/totalPixels,centerRatio=centerObject/Math.max(1,centerPixels);
         const objectScore=clamp((objectRatio-.035)/.18,0,1);
         const edgeScore=clamp((edgeRatio-.025)/.12,0,1);
         const centerScore=clamp((centerRatio-.025)/.18,0,1);
-        const detectedNow=objectScore*.45+edgeScore*.3+centerScore*.25>.52&&objectRatio<.78;
-        detectionConfidence=detectionConfidence*.64+(detectedNow?1:0)*.36;
+        const detectionScore=objectScore*.45+edgeScore*.3+centerScore*.25;
+        return {imageData:keepImage?imageData:null,histogram,objectRatio,edgeRatio,centerRatio,detectionScore,detected:detectionScore>.52&&objectRatio<.78};
+      }
+      function featureSimilarity(reference,current) {
+        let intersection=0;
+        for(let i=0;i<reference.histogram.length;i++)intersection+=Math.min(reference.histogram[i],current.histogram[i]);
+        const objectDiff=Math.abs(reference.objectRatio-current.objectRatio)/Math.max(.12,reference.objectRatio);
+        const edgeDiff=Math.abs(reference.edgeRatio-current.edgeRatio)/.14;
+        const centerDiff=Math.abs(reference.centerRatio-current.centerRatio)/Math.max(.14,reference.centerRatio);
+        const shapeScore=1-clamp(objectDiff*.38+edgeDiff*.27+centerDiff*.35,0,1);
+        return clamp(intersection*.72+shapeScore*.28,0,1);
+      }
+      function cameraPose(reading) {
+        if(!reading)return null;
+        const a=reading.alpha*Math.PI/180,b=reading.beta*Math.PI/180,g=reading.gamma*Math.PI/180;
+        const cX=Math.cos(b),cY=Math.cos(g),cZ=Math.cos(a),sX=Math.sin(b),sY=Math.sin(g),sZ=Math.sin(a);
+        const vx=-cZ*sY-sZ*sX*cY,vy=-sZ*sY+cZ*sX*cY;
+        const horizontal=Math.hypot(vx,vy),flatness=Math.abs(cX*cY);
+        const heading=(Math.atan2(vx,vy)*180/Math.PI+360)%360;
+        return {heading,horizontal,flatness};
+      }
+      const angleDifference=(current,reference)=>((current-reference+540)%360)-180;
+      function analyzeCameraFrame() {
+        const features=readCameraFeatures();
+        if(!features)return;
+        detectionConfidence=detectionConfidence*.64+(features.detected?1:0)*.36;
         if(detectionConfidence<.55){setCameraDirection('waiting','찾는 중','쌓기나무를 단색 바닥 위, 화면 가운데에 놓아 주세요.');return;}
+        if(!frontReference){setCameraDirection('adjust','앞 등록 필요','쌓기나무를 앞에서 비춘 뒤 ‘앞 모습 등록’을 눌러 주세요.');return;}
+        const similarity=featureSimilarity(frontReference,features);
+        if(similarity<.36){setCameraDirection('waiting','기준 확인','등록한 쌓기나무와 달라 보여요. 같은 모양을 화면 가운데에 놓아 주세요.');return;}
         if(!orientationReading||performance.now()-orientationReading.time>1800){
-          const text=orientationPermission==='denied'?'쌓기나무를 찾았어요. Safari 설정에서 동작 및 방향 권한을 허용해 주세요.':'쌓기나무를 찾았어요. iPad 기울기를 확인하고 있어요.';
-          setCameraDirection('adjust','인식 완료',text);return;
+          const text=orientationPermission==='denied'?'같은 쌓기나무를 찾았어요. Safari 설정에서 동작 및 방향 권한을 허용해 주세요.':'같은 쌓기나무를 찾았어요. iPad 방향을 확인하고 있어요.';
+          setCameraDirection('adjust','모양 일치',text);return;
         }
-        const beta=orientationReading.beta*Math.PI/180,gamma=orientationReading.gamma*Math.PI/180;
-        const flatness=Math.abs(Math.cos(beta)*Math.cos(gamma));
-        if(flatness>=.76)setCameraDirection('found','위 ✓','쌓기나무를 위에서 바르게 바라보고 있어요.');
-        else if(flatness<=.46)setCameraDirection('found','앞 ✓','쌓기나무를 앞에서 바르게 바라보고 있어요.');
-        else setCameraDirection('adjust','각도 조절','위와 앞의 중간 각도예요. iPad를 조금 더 눕히거나 세워 보세요.');
+        const pose=cameraPose(orientationReading);
+        if(pose.flatness>=.74){setCameraDirection('found','위 ✓','등록한 쌓기나무를 위에서 바르게 바라보고 있어요.');return;}
+        if(pose.horizontal<.42){setCameraDirection('adjust','각도 조절','iPad를 조금 더 세우거나 눕혀 주세요.');return;}
+        const delta=angleDifference(pose.heading,frontReference.heading),absoluteDelta=Math.abs(delta);
+        if(absoluteDelta<=38)setCameraDirection('found','앞 ✓','등록한 앞 모습에서 바르게 바라보고 있어요.');
+        else if(delta>=52&&delta<=128)setCameraDirection('found','왼쪽 ✓','쌓기나무를 왼쪽에서 바르게 바라보고 있어요.');
+        else if(delta<=-52&&delta>=-128)setCameraDirection('found','오른쪽 ✓','쌓기나무를 오른쪽에서 바르게 바라보고 있어요.');
+        else if(absoluteDelta>=142)setCameraDirection('adjust','뒤쪽','지금은 뒤쪽이에요. 앞·왼쪽·오른쪽으로 이동해 보세요.');
+        else setCameraDirection('adjust','각도 조절','방향 사이에 있어요. 쌓기나무 주위를 조금 더 이동해 보세요.');
+      }
+      function registerFrontReference() {
+        const features=readCameraFeatures(true);
+        if(!features||!features.detected){setCameraDirection('waiting','등록 불가','쌓기나무를 단색 바닥 위, 화면 가운데에 놓아 주세요.');return;}
+        if(!orientationReading||performance.now()-orientationReading.time>1800){setCameraDirection('adjust','권한 필요','동작 및 방향 권한을 허용한 뒤 다시 눌러 주세요.');return;}
+        const pose=cameraPose(orientationReading);
+        if(pose.flatness>.58||pose.horizontal<.42){setCameraDirection('adjust','앞에서 세우기','쌓기나무의 앞에서 iPad를 세운 뒤 다시 눌러 주세요.');return;}
+        frontReference={imageData:features.imageData,histogram:[...features.histogram],objectRatio:features.objectRatio,edgeRatio:features.edgeRatio,centerRatio:features.centerRatio,heading:pose.heading,cameraFacing,capturedAt:Date.now()};
+        registerFrontBtn.textContent='앞 모습 다시 등록';registerFrontBtn.classList.add('registered');
+        detectionConfidence=1;
+        setCameraDirection('found','앞 등록 ✓','기준 사진을 저장했어요. 위·왼쪽·오른쪽으로 이동해 보세요.');
+        updateFeedback(cameraFeedback,'good','✓','앞 모습이 iPad 안에 등록됐어요. 쌓기나무 모양을 바꾸면 다시 등록해 주세요.');
+      }
+      function clearFrontReference(text='앞 모습을 다시 등록해 주세요.') {
+        frontReference=null;registerFrontBtn.textContent='앞 모습 등록';registerFrontBtn.classList.remove('registered');
+        setCameraDirection('adjust','앞 등록 필요',text);
       }
       function startCameraAnalysis() {
         if(cameraAnalysisTimer)clearInterval(cameraAnalysisTimer);
         detectionConfidence=0;cameraDirectionKey='';
-        setCameraDirection('waiting','찾는 중','쌓기나무를 단색 바닥 위, 화면 가운데에 놓아 주세요.');
+        setCameraDirection('waiting','찾는 중',frontReference?'등록한 쌓기나무를 화면 가운데에 놓아 주세요.':'쌓기나무를 앞에서 비춘 뒤 ‘앞 모습 등록’을 눌러 주세요.');
         cameraAnalysisTimer=setInterval(analyzeCameraFrame,360);
       }
       function save() { history.push(copyHeights()); if (history.length > 30) history.shift(); }
@@ -658,7 +722,8 @@
         if (cameraAnalysisTimer) clearInterval(cameraAnalysisTimer);
         cameraAnalysisTimer=null;detectionConfidence=0;stopOrientation();
         cameraStream=null;cameraVideo.srcObject=null;cameraVideo.classList.remove('active');cameraPlaceholder.hidden=false;
-        setCameraDirection('waiting','찾는 중','카메라를 켜고 쌓기나무를 화면 가운데에 놓아 주세요.');
+        registerFrontBtn.disabled=true;
+        setCameraDirection('waiting','카메라 꺼짐',frontReference?'카메라를 켜면 등록된 앞 모습을 계속 사용해요.':'카메라를 켜고 앞 모습을 등록해 주세요.');
         if (!silent) updateFeedback(cameraFeedback,'idle','▣','카메라가 꺼졌어요.');
       }
       function showScreen(screen) {
@@ -677,8 +742,10 @@
           const orientationReady=await enableOrientation();
           cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cameraFacing},width:{ideal:1280},height:{ideal:720}},audio:false});
           cameraVideo.srcObject=cameraStream;cameraVideo.style.transform=cameraFacing==='user'?'scaleX(-1)':'scaleX(1)';await cameraVideo.play();cameraVideo.classList.add('active');cameraPlaceholder.hidden=true;
+          registerFrontBtn.disabled=false;
           startCameraAnalysis();
-          updateFeedback(cameraFeedback,'good','✓',orientationReady?'카메라가 켜졌어요. 쌓기나무의 앞쪽을 iPad로 향하게 하고 화면 가운데에 놓아 보세요.':'카메라가 켜졌어요. 방향 안내를 위해 동작 및 방향 권한을 허용해 주세요.');
+          const readyText=frontReference?'카메라가 켜졌어요. 등록한 쌓기나무를 화면 가운데에 놓아 보세요.':'카메라가 켜졌어요. 앞에서 쌓기나무를 비춘 뒤 ‘앞 모습 등록’을 눌러 주세요.';
+          updateFeedback(cameraFeedback,'good','✓',orientationReady?readyText:'카메라가 켜졌어요. 방향 안내를 위해 동작 및 방향 권한을 허용해 주세요.');
         } catch (error) {
           stopCamera(true);
           const text=error?.name==='NotAllowedError'?'카메라 권한이 필요해요. 브라우저에서 허용해 주세요.':error?.name==='NotFoundError'?'사용할 수 있는 카메라를 찾지 못했어요.':'카메라를 켜지 못했어요. 잠시 후 다시 눌러 주세요.';
@@ -950,7 +1017,8 @@
       document.getElementById('cameraHomeBtn').addEventListener('click',()=>showScreen(homeScreen));
       document.getElementById('virtualHomeBtn').addEventListener('click',()=>showScreen(homeScreen));
       document.getElementById('startCameraBtn').addEventListener('click',startCamera);
-      document.getElementById('switchCameraBtn').addEventListener('click',()=>{cameraFacing=cameraFacing==='environment'?'user':'environment';startCamera();});
+      registerFrontBtn.addEventListener('click',registerFrontReference);
+      document.getElementById('switchCameraBtn').addEventListener('click',()=>{cameraFacing=cameraFacing==='environment'?'user':'environment';clearFrontReference('카메라가 바뀌었어요. 앞 모습을 다시 등록해 주세요.');startCamera();});
       document.getElementById('stopCameraBtn').addEventListener('click',()=>stopCamera(false));
       document.getElementById('cameraEraseBtn').addEventListener('click',()=>{views.forEach(view=>cameraDrawings[view].fill(false));renderCameraGrids();updateFeedback(cameraGridFeedback,'idle','✎','실물 모양 모눈종이를 모두 지웠어요.');});
       window.addEventListener('pagehide',()=>stopCamera(true));
