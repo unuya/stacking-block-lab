@@ -332,6 +332,7 @@
         const w=Math.max(1,Math.round(rect.width*ratio)), h=Math.max(1,Math.round(rect.height*ratio));
         if (canvas.width!==w || canvas.height!==h) { canvas.width=w; canvas.height=h; }
         ctx.setTransform(ratio,0,0,ratio,0,0);
+        ctx.lineJoin='bevel'; ctx.lineCap='butt';
         const scale=Math.max(30,Math.min(rect.width/(SIZE*2),rect.height/(SIZE*1.04+MAX_HEIGHT*.72)));
         return {w:rect.width,h:rect.height,scale,cx:rect.width/2,cy:rect.height*.63};
       }
@@ -364,6 +365,53 @@
         return light?'#bf7138':'#a96131';
       }
 
+      const faceDefs=[
+        {name:'top',n:[0,0,1],v:(x,y,z)=>[[x,y,z+1],[x+1,y,z+1],[x+1,y+1,z+1],[x,y+1,z+1]]},
+        {name:'x+',n:[1,0,0],v:(x,y,z)=>[[x+1,y,z],[x+1,y+1,z],[x+1,y+1,z+1],[x+1,y,z+1]]},
+        {name:'x-',n:[-1,0,0],v:(x,y,z)=>[[x,y+1,z],[x,y,z],[x,y,z+1],[x,y+1,z+1]]},
+        {name:'y+',n:[0,1,0],v:(x,y,z)=>[[x+1,y+1,z],[x,y+1,z],[x,y+1,z+1],[x+1,y+1,z+1]]},
+        {name:'y-',n:[0,-1,0],v:(x,y,z)=>[[x,y,z],[x+1,y,z],[x+1,y,z+1],[x,y,z+1]]}
+      ];
+      const sideOffset={'x+':[1,0],'x-':[-1,0],'y+':[0,1],'y-':[0,-1]};
+
+      function placementFor(target) {
+        if (!target) return null;
+        if (target.kind==='ground') return {x:target.x,y:target.y,z:0};
+        if (target.face==='top') return {x:target.x,y:target.y,z:target.z+1};
+        const [dx,dy]=sideOffset[target.face]||[0,0];
+        return {x:target.x+dx,y:target.y+dy,z:target.z};
+      }
+      function placementState(place) {
+        if (!place||place.x<0||place.x>=SIZE||place.y<0||place.y>=SIZE) return 'outside';
+        if (place.z<0||place.z>=MAX_HEIGHT) return 'limit';
+        const height=heights[place.y][place.x];
+        if (height>place.z) return 'occupied';
+        if (height<place.z) return 'unsupported';
+        return 'ready';
+      }
+      function sameTarget(a,b) {
+        return a&&b&&a.kind===b.kind&&a.x===b.x&&a.y===b.y&&a.z===b.z&&a.face===b.face;
+      }
+      function faceCenter(target,m) {
+        const x=target.x,y=target.y,z=target.z;
+        if (target.face==='top') return project(x+.5,y+.5,z+1,m);
+        if (target.face==='x+') return project(x+1,y+.5,z+.5,m);
+        if (target.face==='x-') return project(x,y+.5,z+.5,m);
+        if (target.face==='y+') return project(x+.5,y+1,z+.5,m);
+        return project(x+.5,y,z+.5,m);
+      }
+      function drawPlacementPreview(target,m) {
+        const place=placementFor(target);
+        if (placementState(place)!=='ready') return;
+        const camX=Math.sin(yaw),camY=Math.cos(yaw),preview=[];
+        faceDefs.forEach(d=>{
+          if (d.n[2]>0||d.n[0]*camX+d.n[1]*camY>.001) preview.push({depth:(place.x+.5)*camX+(place.y+.5)*camY+(place.z+.5)*.75,points:d.v(place.x,place.y,place.z).map(p=>project(p[0],p[1],p[2],m))});
+        });
+        preview.sort((a,b)=>a.depth-b.depth).forEach(face=>{
+          path(face.points);ctx.fillStyle='rgba(255,246,155,.38)';ctx.fill();ctx.strokeStyle='#fff3a0';ctx.lineWidth=3;ctx.stroke();
+        });
+      }
+
       function drawCracks(poly,progress) {
         if (progress<.12) return;
         const c=poly.reduce((a,p)=>({x:a.x+p.x/poly.length,y:a.y+p.y/poly.length}),{x:0,y:0});
@@ -390,44 +438,44 @@
         for (let y=0;y<SIZE;y++) for (let x=0;x<SIZE;x++) ground.push({x,y,depth:(x+.5)*Math.sin(yaw)+(y+.5)*Math.cos(yaw),points:[project(x,y,0,m),project(x+1,y,0,m),project(x+1,y+1,0,m),project(x,y+1,0,m)]});
         ground.sort((a,b)=>a.depth-b.depth).forEach(tile=>{path(tile.points);ctx.fillStyle=(tile.x+tile.y)%2?'#69a842':'#79b64c';ctx.fill();ctx.strokeStyle='#3b6d28';ctx.lineWidth=2;ctx.stroke();hitRegions.push({kind:'ground',...tile});});
         const camX=Math.sin(yaw),camY=Math.cos(yaw),faces=[];
-        const defs=[
-          {name:'top',n:[0,0,1],v:(x,y,z)=>[[x,y,z+1],[x+1,y,z+1],[x+1,y+1,z+1],[x,y+1,z+1]]},
-          {name:'x+',n:[1,0,0],v:(x,y,z)=>[[x+1,y,z],[x+1,y+1,z],[x+1,y+1,z+1],[x+1,y,z+1]]},
-          {name:'x-',n:[-1,0,0],v:(x,y,z)=>[[x,y+1,z],[x,y,z],[x,y,z+1],[x,y+1,z+1]]},
-          {name:'y+',n:[0,1,0],v:(x,y,z)=>[[x+1,y+1,z],[x,y+1,z],[x,y+1,z+1],[x+1,y+1,z+1]]},
-          {name:'y-',n:[0,-1,0],v:(x,y,z)=>[[x,y,z],[x+1,y,z],[x+1,y,z+1],[x,y,z+1]]}
-        ];
         const exposed=(f,x,y,z)=>f==='top'?z===heights[y][x]-1:f==='x+'?(x===SIZE-1||heights[y][x+1]<=z):f==='x-'?(x===0||heights[y][x-1]<=z):f==='y+'?(y===SIZE-1||heights[y+1][x]<=z):(y===0||heights[y-1][x]<=z);
-        for (let y=0;y<SIZE;y++) for (let x=0;x<SIZE;x++) for (let z=0;z<heights[y][x];z++) defs.forEach(d=>{
+        for (let y=0;y<SIZE;y++) for (let x=0;x<SIZE;x++) for (let z=0;z<heights[y][x];z++) faceDefs.forEach(d=>{
           if ((d.n[2]>0||d.n[0]*camX+d.n[1]*camY>.001)&&exposed(d.name,x,y,z)) faces.push({kind:'cube',face:d.name,x,y,z,depth:(x+.5)*camX+(y+.5)*camY+(z+.5)*.75,points:d.v(x,y,z).map(p=>project(p[0],p[1],p[2],m))});
         });
         faces.sort((a,b)=>a.depth-b.depth||a.z-b.z).forEach(face=>{
           path(face.points);ctx.fillStyle=blockColor(face.face,face.x,face.y,face.z);ctx.fill();ctx.strokeStyle='#51311d';ctx.lineWidth=Math.max(1.5,m.scale/30);ctx.stroke();
           ctx.save();path(face.points);ctx.clip();ctx.globalAlpha=.16;ctx.fillStyle=face.face==='top'?'#fff8bf':'#432719';const p=face.points[0],s=Math.max(3,m.scale*.08);ctx.fillRect(p.x+s,p.y+s,s,s);ctx.restore();hitRegions.push(face);
         });
-        if (hover&&!pointer) { const h=[...hitRegions].reverse().find(r=>r.kind===hover.kind&&r.x===hover.x&&r.y===hover.y);if(h){path(h.points);ctx.fillStyle='rgba(255,250,180,.16)';ctx.fill();ctx.strokeStyle='#fff5a8';ctx.lineWidth=3;ctx.stroke();} }
+        if (hover&&!pointer) {
+          const h=[...hitRegions].reverse().find(r=>sameTarget(r,hover));
+          if(h){path(h.points);ctx.fillStyle='rgba(255,250,180,.16)';ctx.fill();ctx.strokeStyle='#fff5a8';ctx.lineWidth=3;ctx.stroke();drawPlacementPreview(h,m);}
+        }
         if (pointer?.hold&&!pointer.dragging&&!pointer.broken) {
           const progress=clamp((time-pointer.started)/HOLD_MS,0,1);holdBox.classList.add('show');holdBar.style.width=`${progress*100}%`;
-          const target=[...hitRegions].reverse().find(r=>r.kind==='cube'&&r.x===pointer.hold.x&&r.y===pointer.hold.y);if(target)drawCracks(target.points,progress);if(progress>=1)breakBlock();
+          const target=[...hitRegions].reverse().find(r=>sameTarget(r,pointer.hold));if(target)drawCracks(target.points,progress);if(progress>=1)breakBlock();
         } else { holdBox.classList.remove('show');holdBar.style.width='0%'; }
-        if (flash&&time-flash.time<220) { const p=project(flash.x+.5,flash.y+.5,flash.z+1,m),a=1-(time-flash.time)/220;ctx.strokeStyle=`rgba(255,250,170,${a})`;ctx.lineWidth=4;ctx.strokeRect(p.x-m.scale*.25,p.y-m.scale*.25,m.scale*.5,m.scale*.5); }
+        if (flash&&time-flash.time<260) { const p=project(flash.x+.5,flash.y+.5,flash.z+.5,m),a=1-(time-flash.time)/260;ctx.strokeStyle=`rgba(255,250,170,${a})`;ctx.lineWidth=4;ctx.beginPath();ctx.arc(p.x,p.y,m.scale*(.3+a*.18),0,Math.PI*2);ctx.stroke(); }
         particles=particles.filter(p=>time-p.start<700);particles.forEach(p=>{const age=(time-p.start)/1000;ctx.globalAlpha=1-age/.7;ctx.fillStyle=p.color;ctx.fillRect(p.x+p.vx*age,p.y+p.vy*age+250*age*age,p.size,p.size);});ctx.globalAlpha=1;
         drawCompass(m);requestAnimationFrame(render);
       }
 
       function addBlock(target) {
-        if (!target) return;
-        if (heights[target.y][target.x]>=MAX_HEIGHT) { setFeedback('try','!',`한 칸에는 ${MAX_HEIGHT}개까지 쌓을 수 있어요.`);return; }
-        save();heights[target.y][target.x]++;flash={x:target.x,y:target.y,z:heights[target.y][target.x]-1,time:performance.now()};modelChanged('블록을 쌓았어요.');
+        const place=placementFor(target),state=placementState(place);
+        if (!place) return;
+        if (state==='outside') { setFeedback('try','!','판 안쪽의 빈 공간을 골라 주세요.');return; }
+        if (state==='limit') { setFeedback('try','!',`한 칸에는 ${MAX_HEIGHT}개까지 쌓을 수 있어요.`);return; }
+        if (state==='unsupported') { setFeedback('try','!','그 공간 아래에 먼저 블록을 쌓아 주세요.');return; }
+        if (state==='occupied') { setFeedback('try','!','이미 블록이 있는 공간이에요.');return; }
+        save();heights[place.y][place.x]++;flash={...place,time:performance.now()};modelChanged('고른 공간에 블록을 쌓았어요.');
       }
       function breakBlock() {
         if (!pointer||pointer.broken||!pointer.hold) return;
-        const {x,y}=pointer.hold;if (heights[y][x]<=0)return;save();const m=metrics(),p=project(x+.5,y+.5,heights[y][x],m);heights[y][x]--;pointer.broken=true;pointer.hold=null;
+        const target=pointer.hold,{x,y}=target;if (heights[y][x]<=0)return;save();const m=metrics(),p=faceCenter(target,m);heights[y][x]--;pointer.broken=true;pointer.hold=null;
         const colors=['#f1ca70','#c77c3d','#8b512b','#69a842'];for(let i=0;i<20;i++)particles.push({x:p.x,y:p.y,start:performance.now(),vx:(Math.random()-.5)*170,vy:-50-Math.random()*145,size:4+Math.random()*7,color:colors[i%4]});
-        if(navigator.vibrate)navigator.vibrate(45);modelChanged('블록 한 개를 깨뜨렸어요.');
+        if(navigator.vibrate)navigator.vibrate(45);modelChanged(target.z<heights[y][x]?'고른 블록을 깨뜨렸어요. 위 블록은 아래로 내려왔어요.':'고른 블록을 깨뜨렸어요.');
       }
-      canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=pointOf(e),target=pick(p);pointer={id:e.pointerId,start:p,last:p,started:performance.now(),target,hold:target?.kind==='cube'?{x:target.x,y:target.y}:null,dragging:false,broken:false};canvas.setPointerCapture(e.pointerId);});
-      canvas.addEventListener('pointermove',e=>{const p=pointOf(e);if(!pointer||pointer.id!==e.pointerId){const t=pick(p);hover=t?{kind:t.kind,x:t.x,y:t.y}:null;return;}if(Math.hypot(p.x-pointer.start.x,p.y-pointer.start.y)>7){pointer.dragging=true;pointer.hold=null;canvas.classList.add('dragging');}if(pointer.dragging){yaw-=(p.x-pointer.last.x)*.012;pitch=clamp(pitch+(p.y-pointer.last.y)*.008,.18,Math.PI/2);}pointer.last=p;});
+      canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=pointOf(e),target=pick(p);pointer={id:e.pointerId,start:p,last:p,started:performance.now(),target,hold:target?.kind==='cube'?{kind:target.kind,face:target.face,x:target.x,y:target.y,z:target.z}:null,dragging:false,broken:false};canvas.setPointerCapture(e.pointerId);});
+      canvas.addEventListener('pointermove',e=>{const p=pointOf(e);if(!pointer||pointer.id!==e.pointerId){const t=pick(p);hover=t?{kind:t.kind,face:t.face,x:t.x,y:t.y,z:t.z}:null;return;}if(Math.hypot(p.x-pointer.start.x,p.y-pointer.start.y)>7){pointer.dragging=true;pointer.hold=null;canvas.classList.add('dragging');}if(pointer.dragging){yaw-=(p.x-pointer.last.x)*.012;pitch=clamp(pitch+(p.y-pointer.last.y)*.008,.18,Math.PI/2);}pointer.last=p;});
       function pointerEnd(e){if(!pointer||pointer.id!==e.pointerId)return;const state=pointer;pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');if(!state.dragging&&!state.broken)addBlock(state.target);}
       canvas.addEventListener('pointerup',pointerEnd);
       canvas.addEventListener('pointercancel',e=>{if(pointer?.id===e.pointerId)pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');});
