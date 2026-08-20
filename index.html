@@ -198,7 +198,30 @@
     .camera-placeholder { position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; padding: 24px; color: #eff7e9; text-align: center; background: linear-gradient(#263526,#172016); }
     .camera-placeholder b { font-size: 22px; }
     .camera-placeholder span { color: #cbd9c5; font-size: 13px; font-weight: 700; }
-    .camera-guide { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(255,255,255,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.18) 1px,transparent 1px); background-size: 20% 20%; box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+    .camera-direction {
+      position: absolute;
+      left: 50%;
+      bottom: 12px;
+      z-index: 2;
+      width: min(430px,calc(100% - 24px));
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 10px;
+      color: white;
+      background: rgba(28,36,25,.9);
+      border: 3px solid rgba(255,255,255,.78);
+      box-shadow: 4px 4px 0 rgba(22,27,19,.32);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .camera-direction b { min-width: 66px; padding: 5px 7px; color: #fff6ce; background: #5e6b58; border: 2px solid #dbe8d5; text-align: center; line-height: 1; }
+    .camera-direction span { font-size: 13px; font-weight: 800; line-height: 1.35; }
+    .camera-direction.found { background: rgba(43,91,40,.93); border-color: #dff5c9; }
+    .camera-direction.found b { color: #214c20; background: #e8f8d7; border-color: #89c16e; }
+    .camera-direction.adjust { background: rgba(126,82,28,.93); border-color: #ffe3a7; }
+    .camera-direction.adjust b { color: #68451f; background: #fff0c6; border-color: #d7a95b; }
     .camera-controls { display: flex; gap: 7px; flex-wrap: wrap; padding: 9px 11px 10px; background: var(--sand); }
     .camera-practice { display: flex; flex-direction: column; }
     .camera-grids { flex: 0 0 auto; }
@@ -370,7 +393,9 @@
             <b>카메라 준비</b>
             <span>아래의 카메라 켜기 버튼을 눌러 주세요.</span>
           </div>
-          <div class="camera-guide" aria-hidden="true"></div>
+          <div class="camera-direction" id="cameraDirectionFeedback" role="status" aria-live="polite">
+            <b>찾는 중</b><span>카메라를 켜고 쌓기나무를 화면 가운데에 놓아 주세요.</span>
+          </div>
         </div>
         <div class="camera-controls">
           <button type="button" class="btn primary" id="startCameraBtn">카메라 켜기</button>
@@ -510,6 +535,7 @@
       const cameraPlaceholder = document.getElementById('cameraPlaceholder');
       const cameraFeedback = document.getElementById('cameraFeedback');
       const cameraGridFeedback = document.getElementById('cameraGridFeedback');
+      const cameraDirectionFeedback = document.getElementById('cameraDirectionFeedback');
       const canvas = document.getElementById('worldCanvas');
       const ctx = canvas.getContext('2d');
       const countEl = document.getElementById('cubeCount');
@@ -521,7 +547,12 @@
       const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
       const total = () => heights.flat().reduce((sum,n) => sum+n,0);
       const copyHeights = () => heights.map(row => [...row]);
-      let cameraStream = null, cameraFacing = 'environment';
+      let cameraStream = null, cameraFacing = 'environment', cameraAnalysisTimer = null;
+      let orientationReading = null, orientationListening = false, orientationPermission = 'unknown';
+      let detectionConfidence = 0, cameraDirectionKey = '';
+      const analysisCanvas = document.createElement('canvas');
+      analysisCanvas.width = 160; analysisCanvas.height = 120;
+      const analysisCtx = analysisCanvas.getContext('2d',{willReadFrequently:true});
 
       function updateFeedback(feedback, type, icon, text) {
         feedback.className = `feedback${type === 'idle' ? '' : ' '+type}`;
@@ -533,6 +564,84 @@
       }
       const setWorldFeedback=(type,icon,text)=>setFeedback('world',type,icon,text);
       const setPracticeFeedback=(type,icon,text)=>setFeedback('practice',type,icon,text);
+      function setCameraDirection(type,label,text) {
+        const key=`${type}|${label}|${text}`;
+        if (key===cameraDirectionKey) return;
+        cameraDirectionKey=key;
+        cameraDirectionFeedback.className=`camera-direction${type==='waiting'?'':' '+type}`;
+        cameraDirectionFeedback.innerHTML=`<b>${label}</b><span>${text}</span>`;
+      }
+      function onDeviceOrientation(event) {
+        if (event.beta==null||event.gamma==null) return;
+        orientationReading={beta:event.beta,gamma:event.gamma,time:performance.now()};
+      }
+      async function enableOrientation() {
+        if (orientationListening) return true;
+        if (typeof DeviceOrientationEvent==='undefined') { orientationPermission='unsupported';return false; }
+        try {
+          if (orientationPermission!=='granted'&&typeof DeviceOrientationEvent.requestPermission==='function') {
+            orientationPermission=await DeviceOrientationEvent.requestPermission();
+          } else if (orientationPermission==='unknown') orientationPermission='granted';
+          if (orientationPermission!=='granted') return false;
+          window.addEventListener('deviceorientation',onDeviceOrientation);
+          orientationListening=true;return true;
+        } catch (error) { orientationPermission='denied';return false; }
+      }
+      function stopOrientation() {
+        if (!orientationListening) return;
+        window.removeEventListener('deviceorientation',onDeviceOrientation);
+        orientationListening=false;orientationReading=null;
+      }
+      function analyzeCameraFrame() {
+        if (!cameraStream||cameraVideo.readyState<2||!analysisCtx) return;
+        const w=analysisCanvas.width,h=analysisCanvas.height;
+        analysisCtx.drawImage(cameraVideo,0,0,w,h);
+        const pixels=analysisCtx.getImageData(0,0,w,h).data;
+        let br=0,bg=0,bb=0,bn=0;
+        for(let y=0;y<h;y+=2)for(let x=0;x<w;x+=2){
+          if(x>14&&x<w-15&&y>12&&y<h-13)continue;
+          const i=(y*w+x)*4;br+=pixels[i];bg+=pixels[i+1];bb+=pixels[i+2];bn++;
+        }
+        br/=bn;bg/=bn;bb/=bn;
+        let objectPixels=0,centerPixels=0,centerObject=0,strongEdges=0,totalPixels=0;
+        const x0=22,x1=w-22,y0=14,y1=h-12;
+        for(let y=y0+1;y<y1;y++)for(let x=x0+1;x<x1;x++){
+          const i=(y*w+x)*4,left=i-4,up=i-w*4;
+          const r=pixels[i],g=pixels[i+1],b=pixels[i+2];
+          const distance=Math.sqrt((r-br)**2+(g-bg)**2+(b-bb)**2);
+          const gray=r*.299+g*.587+b*.114;
+          const leftGray=pixels[left]*.299+pixels[left+1]*.587+pixels[left+2]*.114;
+          const upGray=pixels[up]*.299+pixels[up+1]*.587+pixels[up+2]*.114;
+          const edge=Math.abs(gray-leftGray)+Math.abs(gray-upGray);
+          const isObject=distance>48&&gray>24&&gray<247;
+          if(isObject)objectPixels++;
+          if(edge>58)strongEdges++;
+          if(x>w*.34&&x<w*.66&&y>h*.28&&y<h*.75){centerPixels++;if(isObject)centerObject++;}
+          totalPixels++;
+        }
+        const objectRatio=objectPixels/totalPixels,edgeRatio=strongEdges/totalPixels,centerRatio=centerObject/Math.max(1,centerPixels);
+        const objectScore=clamp((objectRatio-.035)/.18,0,1);
+        const edgeScore=clamp((edgeRatio-.025)/.12,0,1);
+        const centerScore=clamp((centerRatio-.025)/.18,0,1);
+        const detectedNow=objectScore*.45+edgeScore*.3+centerScore*.25>.52&&objectRatio<.78;
+        detectionConfidence=detectionConfidence*.64+(detectedNow?1:0)*.36;
+        if(detectionConfidence<.55){setCameraDirection('waiting','찾는 중','쌓기나무를 단색 바닥 위, 화면 가운데에 놓아 주세요.');return;}
+        if(!orientationReading||performance.now()-orientationReading.time>1800){
+          const text=orientationPermission==='denied'?'쌓기나무를 찾았어요. Safari 설정에서 동작 및 방향 권한을 허용해 주세요.':'쌓기나무를 찾았어요. iPad 기울기를 확인하고 있어요.';
+          setCameraDirection('adjust','인식 완료',text);return;
+        }
+        const beta=orientationReading.beta*Math.PI/180,gamma=orientationReading.gamma*Math.PI/180;
+        const flatness=Math.abs(Math.cos(beta)*Math.cos(gamma));
+        if(flatness>=.76)setCameraDirection('found','위 ✓','쌓기나무를 위에서 바르게 바라보고 있어요.');
+        else if(flatness<=.46)setCameraDirection('found','앞 ✓','쌓기나무를 앞에서 바르게 바라보고 있어요.');
+        else setCameraDirection('adjust','각도 조절','위와 앞의 중간 각도예요. iPad를 조금 더 눕히거나 세워 보세요.');
+      }
+      function startCameraAnalysis() {
+        if(cameraAnalysisTimer)clearInterval(cameraAnalysisTimer);
+        detectionConfidence=0;cameraDirectionKey='';
+        setCameraDirection('waiting','찾는 중','쌓기나무를 단색 바닥 위, 화면 가운데에 놓아 주세요.');
+        cameraAnalysisTimer=setInterval(analyzeCameraFrame,360);
+      }
       function save() { history.push(copyHeights()); if (history.length > 30) history.shift(); }
       function resetPractice(text='모양이 바뀌었어요.') {
         views.forEach(v => drawings[v].fill(false));
@@ -546,7 +655,10 @@
 
       function stopCamera(silent=false) {
         if (cameraStream) cameraStream.getTracks().forEach(track=>track.stop());
+        if (cameraAnalysisTimer) clearInterval(cameraAnalysisTimer);
+        cameraAnalysisTimer=null;detectionConfidence=0;stopOrientation();
         cameraStream=null;cameraVideo.srcObject=null;cameraVideo.classList.remove('active');cameraPlaceholder.hidden=false;
+        setCameraDirection('waiting','찾는 중','카메라를 켜고 쌓기나무를 화면 가운데에 놓아 주세요.');
         if (!silent) updateFeedback(cameraFeedback,'idle','▣','카메라가 꺼졌어요.');
       }
       function showScreen(screen) {
@@ -560,14 +672,17 @@
         if (!navigator.mediaDevices?.getUserMedia) {
           updateFeedback(cameraFeedback,'try','!','이 브라우저에서는 카메라를 사용할 수 없어요. HTTPS 주소에서 열어 주세요.');return;
         }
-        stopCamera(true);updateFeedback(cameraFeedback,'idle','▣','카메라를 연결하고 있어요.');
+        stopCamera(true);updateFeedback(cameraFeedback,'idle','▣','카메라를 연결하고 있어요.');setCameraDirection('waiting','준비 중','카메라와 iPad 기울기를 준비하고 있어요.');
         try {
+          const orientationReady=await enableOrientation();
           cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cameraFacing},width:{ideal:1280},height:{ideal:720}},audio:false});
           cameraVideo.srcObject=cameraStream;cameraVideo.style.transform=cameraFacing==='user'?'scaleX(-1)':'scaleX(1)';await cameraVideo.play();cameraVideo.classList.add('active');cameraPlaceholder.hidden=true;
-          updateFeedback(cameraFeedback,'good','✓','카메라가 켜졌어요. 쌓기나무를 화면 가운데에 놓아 보세요.');
+          startCameraAnalysis();
+          updateFeedback(cameraFeedback,'good','✓',orientationReady?'카메라가 켜졌어요. 쌓기나무의 앞쪽을 iPad로 향하게 하고 화면 가운데에 놓아 보세요.':'카메라가 켜졌어요. 방향 안내를 위해 동작 및 방향 권한을 허용해 주세요.');
         } catch (error) {
           stopCamera(true);
           const text=error?.name==='NotAllowedError'?'카메라 권한이 필요해요. 브라우저에서 허용해 주세요.':error?.name==='NotFoundError'?'사용할 수 있는 카메라를 찾지 못했어요.':'카메라를 켜지 못했어요. 잠시 후 다시 눌러 주세요.';
+          setCameraDirection('waiting','인식 대기','카메라를 사용할 수 있어야 쌓기나무를 인식할 수 있어요.');
           updateFeedback(cameraFeedback,'try','!',text);
         }
       }
