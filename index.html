@@ -234,7 +234,7 @@
   <script>
     (() => {
       'use strict';
-      const SIZE = 5, MAX_HEIGHT = 5, HOLD_MS = 620;
+      const SIZE = 5, MAX_HEIGHT = 5, HOLD_MS = 620, BREAK_INTENT_MS = 150;
       const views = ['top','front','left','right'];
       const viewNames = { top:'위', front:'앞', left:'왼쪽', right:'오른쪽' };
       const presets = {
@@ -474,8 +474,9 @@
           const h=[...hitRegions].reverse().find(r=>sameTarget(r,hover));
           if(h){path(h.points);ctx.fillStyle='rgba(255,250,180,.16)';ctx.fill();ctx.strokeStyle='#fff5a8';ctx.lineWidth=3;ctx.stroke();drawPlacementPreview(h,m);}
         }
-        if (pointer?.hold&&!pointer.dragging&&!pointer.broken) {
-          const progress=clamp((time-pointer.started)/HOLD_MS,0,1);holdBox.classList.add('show');holdBar.style.width=`${progress*100}%`;
+        const holdTime=pointer?.hold&&!pointer.dragging&&!pointer.broken?time-pointer.started:0;
+        if (holdTime>=BREAK_INTENT_MS) {
+          const progress=clamp((holdTime-BREAK_INTENT_MS)/(HOLD_MS-BREAK_INTENT_MS),0,1);holdBox.classList.add('show');holdBar.style.width=`${progress*100}%`;
           const target=[...hitRegions].reverse().find(r=>sameTarget(r,pointer.hold));if(target)drawCracks(target.points,progress);if(progress>=1)breakBlock();
         } else { holdBox.classList.remove('show');holdBar.style.width='0%'; }
         if (flash&&time-flash.time<260) { const p=project(flash.x+.5,flash.y+.5,flash.z+.5,m),a=1-(time-flash.time)/260;ctx.strokeStyle=`rgba(255,250,170,${a})`;ctx.lineWidth=4;ctx.beginPath();ctx.arc(p.x,p.y,m.scale*(.3+a*.18),0,Math.PI*2);ctx.stroke(); }
@@ -500,7 +501,7 @@
       }
       canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=pointOf(e),target=pick(p);pointer={id:e.pointerId,start:p,last:p,started:performance.now(),target,hold:target?.kind==='cube'?{kind:target.kind,face:target.face,x:target.x,y:target.y,z:target.z}:null,dragging:false,broken:false};canvas.setPointerCapture(e.pointerId);});
       canvas.addEventListener('pointermove',e=>{const p=pointOf(e);if(!pointer||pointer.id!==e.pointerId){const t=pick(p);hover=t?{kind:t.kind,face:t.face,x:t.x,y:t.y,z:t.z}:null;return;}if(Math.hypot(p.x-pointer.start.x,p.y-pointer.start.y)>7){pointer.dragging=true;pointer.hold=null;canvas.classList.add('dragging');}if(pointer.dragging){yaw-=(p.x-pointer.last.x)*.012;pitch=clamp(pitch+(p.y-pointer.last.y)*.008,0,Math.PI/2);}pointer.last=p;});
-      function pointerEnd(e){if(!pointer||pointer.id!==e.pointerId)return;const state=pointer;pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');if(state.dragging)snapCamera();else if(!state.broken)addBlock(state.target);}
+      function pointerEnd(e){if(!pointer||pointer.id!==e.pointerId)return;const state=pointer,breakingAttempt=state.target?.kind==='cube'&&performance.now()-state.started>=BREAK_INTENT_MS;pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');holdBar.style.width='0%';if(state.dragging)snapCamera();else if(!state.broken&&!breakingAttempt)addBlock(state.target);else if(breakingAttempt&&!state.broken)setWorldFeedback('idle','◆','블록 깨기를 멈췄어요.');}
       canvas.addEventListener('pointerup',pointerEnd);
       canvas.addEventListener('pointercancel',e=>{if(pointer?.id===e.pointerId)pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');});
       canvas.addEventListener('pointerleave',()=>{if(!pointer)hover=null;});canvas.addEventListener('contextmenu',e=>e.preventDefault());
