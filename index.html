@@ -400,6 +400,13 @@
         if (target.face==='y+') return project(x+.5,y+1,z+.5,m);
         return project(x+.5,y,z+.5,m);
       }
+      function snapCamera() {
+        const snapRange=.09;
+        if (pitch<=snapRange) {
+          pitch=0;
+          yaw=Math.round(yaw/(Math.PI/2))*(Math.PI/2);
+        } else if (pitch>=Math.PI/2-snapRange) pitch=Math.PI/2;
+      }
       function drawPlacementPreview(target,m) {
         const place=placementFor(target);
         if (placementState(place)!=='ready') return;
@@ -475,8 +482,8 @@
         if(navigator.vibrate)navigator.vibrate(45);modelChanged(target.z<heights[y][x]?'고른 블록을 깨뜨렸어요. 위 블록은 아래로 내려왔어요.':'고른 블록을 깨뜨렸어요.');
       }
       canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=pointOf(e),target=pick(p);pointer={id:e.pointerId,start:p,last:p,started:performance.now(),target,hold:target?.kind==='cube'?{kind:target.kind,face:target.face,x:target.x,y:target.y,z:target.z}:null,dragging:false,broken:false};canvas.setPointerCapture(e.pointerId);});
-      canvas.addEventListener('pointermove',e=>{const p=pointOf(e);if(!pointer||pointer.id!==e.pointerId){const t=pick(p);hover=t?{kind:t.kind,face:t.face,x:t.x,y:t.y,z:t.z}:null;return;}if(Math.hypot(p.x-pointer.start.x,p.y-pointer.start.y)>7){pointer.dragging=true;pointer.hold=null;canvas.classList.add('dragging');}if(pointer.dragging){yaw-=(p.x-pointer.last.x)*.012;pitch=clamp(pitch+(p.y-pointer.last.y)*.008,.18,Math.PI/2);}pointer.last=p;});
-      function pointerEnd(e){if(!pointer||pointer.id!==e.pointerId)return;const state=pointer;pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');if(!state.dragging&&!state.broken)addBlock(state.target);}
+      canvas.addEventListener('pointermove',e=>{const p=pointOf(e);if(!pointer||pointer.id!==e.pointerId){const t=pick(p);hover=t?{kind:t.kind,face:t.face,x:t.x,y:t.y,z:t.z}:null;return;}if(Math.hypot(p.x-pointer.start.x,p.y-pointer.start.y)>7){pointer.dragging=true;pointer.hold=null;canvas.classList.add('dragging');}if(pointer.dragging){yaw-=(p.x-pointer.last.x)*.012;pitch=clamp(pitch+(p.y-pointer.last.y)*.008,0,Math.PI/2);}pointer.last=p;});
+      function pointerEnd(e){if(!pointer||pointer.id!==e.pointerId)return;const state=pointer;pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');if(state.dragging)snapCamera();else if(!state.broken)addBlock(state.target);}
       canvas.addEventListener('pointerup',pointerEnd);
       canvas.addEventListener('pointercancel',e=>{if(pointer?.id===e.pointerId)pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');});
       canvas.addEventListener('pointerleave',()=>{if(!pointer)hover=null;});canvas.addEventListener('contextmenu',e=>e.preventDefault());
