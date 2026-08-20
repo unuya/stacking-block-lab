@@ -35,9 +35,9 @@
     button { font: inherit; }
     button:focus-visible { outline: 4px solid #276fc5; outline-offset: 3px; }
 
-    .app { width: min(1480px, calc(100% - 28px)); margin: 0 auto; padding: 15px 0 34px; }
+    .app { width: min(1400px, calc(100% - 28px)); margin: 0 auto; padding: 10px 0 20px; }
     .titlebar {
-      min-height: 64px;
+      min-height: 58px;
       display: flex;
       align-items: center;
       padding: 0 8px;
@@ -48,18 +48,18 @@
     .studio {
       display: grid;
       grid-template-columns: minmax(520px, 1.04fr) minmax(560px, .96fr);
-      gap: 18px;
-      margin-top: 18px;
-      align-items: stretch;
+      gap: 14px;
+      margin-top: 12px;
+      align-items: start;
     }
     .panel { min-width: 0; overflow: hidden; background: var(--paper); border: 4px solid var(--line); box-shadow: var(--shadow); }
     .panel-head {
-      min-height: 66px;
+      min-height: 62px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 11px 14px;
+      padding: 8px 12px;
       color: white;
       background: var(--green);
       border-bottom: 4px solid var(--line);
@@ -67,10 +67,13 @@
     .panel-head h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.025em; }
     .panel-head p { margin: 2px 0 0; font-size: 12px; font-weight: 750; opacity: .92; }
     .count { flex: none; padding: 6px 10px; color: #402d1b; background: var(--wood-light); border: 3px solid #604025; font-weight: 800; box-shadow: 3px 3px 0 rgba(44,31,19,.2); }
+    button.count { cursor: pointer; }
+    button.count:hover { background: #ffe39a; }
+    button.count:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 rgba(44,31,19,.2); }
     .count strong { font-size: 20px; }
 
     .scene { position: relative; background: #a9ddef; border-bottom: 4px solid var(--line); overflow: hidden; touch-action: none; user-select: none; }
-    #worldCanvas { display: block; width: 100%; aspect-ratio: 1.28; cursor: grab; touch-action: none; }
+    #worldCanvas { display: block; width: 100%; aspect-ratio: 1.34; cursor: grab; touch-action: none; }
     #worldCanvas.dragging { cursor: grabbing; }
     .hold-box { position: absolute; top: 11px; right: 11px; width: 112px; padding: 6px; color: white; background: rgba(38,43,29,.84); border: 3px solid #28301f; opacity: 0; pointer-events: none; }
     .hold-box.show { opacity: 1; }
@@ -78,11 +81,11 @@
     .hold-track { height: 9px; background: #20251b; }
     .hold-bar { width: 0; height: 100%; background: var(--red); }
 
-    .world-controls { padding: 11px 13px 13px; background: var(--sand); }
+    .world-controls { padding: 9px 11px 10px; background: var(--sand); }
     .control-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
     .buttons { display: flex; gap: 7px; flex-wrap: wrap; }
     .btn {
-      min-height: 40px;
+      min-height: 38px;
       padding: 7px 11px;
       color: #312417;
       background: #f4dd9e;
@@ -98,15 +101,15 @@
     .btn.primary { color: white; background: var(--green-dark); border-color: #243f1a; }
     .btn.blue { color: white; background: var(--blue); border-color: #254e7d; }
     .btn.red { color: white; background: #aa4938; border-color: #623126; }
-    .presets { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 2px solid rgba(101,73,38,.35); }
+    .presets { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px; padding-top: 8px; border-top: 2px solid rgba(101,73,38,.35); }
     .presets > span { color: #59452f; font-size: 12px; font-weight: 800; }
     .presets .btn { min-height: 34px; padding: 5px 9px; font-size: 12px; }
 
     .practice { display: flex; flex-direction: column; }
-    .grids { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; padding: 12px; background: var(--sand-light); }
-    .view-card { min-width: 0; padding: 8px; background: #fffdf1; border: 3px solid #685039; box-shadow: 3px 3px 0 rgba(72,51,29,.16); }
+    .grids { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; padding: 10px; background: var(--sand-light); }
+    .view-card { min-width: 0; padding: 7px; background: #fffdf1; border: 3px solid #685039; box-shadow: 3px 3px 0 rgba(72,51,29,.16); }
     .view-card.correct-card { border-color: #2f762e; box-shadow: 3px 3px 0 rgba(47,118,46,.25); }
-    .view-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+    .view-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
     .view-title h3 { margin: 0; font-size: 14px; font-weight: 800; }
     .view-arrow { width: 27px; height: 27px; display: grid; place-items: center; flex: none; color: white; background: var(--blue); border: 2px solid #254e7d; font-weight: 800; }
     .draw-grid {
@@ -125,8 +128,8 @@
     .cell.missed { background: repeating-linear-gradient(135deg,#fff4cb 0 7px,#e7654f 7px 13px); box-shadow: inset 0 0 0 3px #a6372c; }
     .cell.answer { background: #8fbde8; box-shadow: inset 0 0 0 4px #2f6eae; }
 
-    .practice-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 11px 12px; background: var(--sand); border-top: 4px solid var(--line); }
-    .feedback { min-height: 53px; display: flex; align-items: center; gap: 9px; padding: 9px 12px; color: #524a3b; background: #fff7cf; border-top: 3px solid #785d3a; font-size: 13px; font-weight: 750; }
+    .practice-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 8px 10px; background: var(--sand); border-top: 4px solid var(--line); }
+    .feedback { min-height: 46px; display: flex; align-items: center; gap: 8px; padding: 7px 10px; color: #524a3b; background: #fff7cf; border-top: 3px solid #785d3a; font-size: 13px; font-weight: 750; }
     .feedback.good { color: #245728; background: #dff3cf; }
     .feedback.try { color: #84392d; background: #ffe0d4; }
     .feedback b { width: 29px; height: 29px; display: grid; place-items: center; flex: none; color: white; background: var(--green); border: 2px solid var(--green-dark); }
@@ -165,7 +168,7 @@
       <section class="panel" aria-labelledby="worldTitle">
         <div class="panel-head">
           <div><h2 id="worldTitle">입체 모양</h2><p>블록을 직접 쌓고 돌려 보세요.</p></div>
-          <div class="count">블록 <strong id="cubeCount">0</strong>개</div>
+          <button type="button" class="count" id="countToggle" aria-expanded="false" aria-label="블록 개수 보기">블록 <strong id="cubeCount">?</strong>개</button>
         </div>
         <div class="scene">
           <canvas id="worldCanvas" aria-label="블록을 직접 쌓고 회전시키는 5 곱하기 5 입체 공간"></canvas>
@@ -183,12 +186,16 @@
             </div>
           </div>
           <div class="presets">
-            <span>쉬운 모양</span>
+            <span>예시 모양</span>
             <button class="btn" data-preset="stairs">계단</button>
             <button class="btn" data-preset="corner">기역</button>
             <button class="btn" data-preset="mountain">작은 산</button>
+            <button class="btn" data-preset="wall">담장</button>
+            <button class="btn" data-preset="towers">두 탑</button>
+            <button class="btn" data-preset="cross">십자</button>
           </div>
         </div>
+        <div class="feedback" id="worldFeedback" role="status" aria-live="polite"><b>◆</b><span>블록을 쌓아 입체 모양을 만들어 보세요.</span></div>
       </section>
 
       <section class="panel practice" aria-labelledby="practiceTitle">
@@ -219,7 +226,7 @@
           <button class="btn blue" id="answerBtn">정답 보기</button>
           <button class="btn" id="eraseBtn">그림 지우기</button>
         </div>
-        <div class="feedback" id="feedback" role="status" aria-live="polite"><b>✎</b><span>입체 모양을 돌려 보고 모눈종이에 그려 보세요.</span></div>
+        <div class="feedback" id="practiceFeedback" role="status" aria-live="polite"><b>✎</b><span>모눈종이를 색칠한 뒤 네 방향을 확인해 보세요.</span></div>
       </section>
     </main>
   </div>
@@ -233,34 +240,44 @@
       const presets = {
         stairs: [[0,0,0,0,0],[0,0,1,0,0],[0,1,2,3,0],[0,1,1,1,0],[0,0,0,0,0]],
         corner: [[0,0,0,0,0],[0,2,0,0,0],[0,2,0,0,0],[0,2,1,1,0],[0,0,0,0,0]],
-        mountain: [[0,0,0,0,0],[0,0,1,0,0],[0,1,3,1,0],[0,0,1,0,0],[0,0,0,0,0]]
+        mountain: [[0,0,0,0,0],[0,0,1,0,0],[0,1,3,1,0],[0,0,1,0,0],[0,0,0,0,0]],
+        wall: [[0,0,0,0,0],[0,1,0,0,0],[0,2,0,0,0],[0,3,0,0,0],[0,0,0,0,0]],
+        towers: [[0,0,0,0,0],[0,2,0,1,0],[0,0,0,0,0],[0,1,0,3,0],[0,0,0,0,0]],
+        cross: [[0,0,0,0,0],[0,0,1,0,0],[0,1,2,1,0],[0,0,1,0,0],[0,0,0,0,0]]
       };
-      let heights = presets.stairs.map(row => [...row]);
+      let heights = Array.from({length:SIZE},()=>Array(SIZE).fill(0));
       let history = [], yaw = Math.PI/4, pitch = .54, hitRegions = [], hover = null;
-      let pointer = null, particles = [], flash = null, checked = false, showingAnswer = false;
+      let pointer = null, particles = [], flash = null, checked = false, showingAnswer = false, countVisible = false;
       const drawings = Object.fromEntries(views.map(view => [view, Array(SIZE*SIZE).fill(false)]));
       const canvas = document.getElementById('worldCanvas');
       const ctx = canvas.getContext('2d');
       const countEl = document.getElementById('cubeCount');
+      const countToggle = document.getElementById('countToggle');
       const holdBox = document.getElementById('holdBox');
       const holdBar = document.getElementById('holdBar');
-      const feedback = document.getElementById('feedback');
+      const worldFeedback = document.getElementById('worldFeedback');
+      const practiceFeedback = document.getElementById('practiceFeedback');
       const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
       const total = () => heights.flat().reduce((sum,n) => sum+n,0);
       const copyHeights = () => heights.map(row => [...row]);
 
-      function setFeedback(type, icon, text) {
+      function setFeedback(area, type, icon, text) {
+        const feedback=area==='world'?worldFeedback:practiceFeedback;
         feedback.className = `feedback${type === 'idle' ? '' : ' '+type}`;
         feedback.innerHTML = `<b>${icon}</b><span>${text}</span>`;
       }
+      const setWorldFeedback=(type,icon,text)=>setFeedback('world',type,icon,text);
+      const setPracticeFeedback=(type,icon,text)=>setFeedback('practice',type,icon,text);
       function save() { history.push(copyHeights()); if (history.length > 30) history.shift(); }
-      function resetPractice(text='모양이 바뀌었어요. 네 방향을 다시 그려 보세요.') {
+      function resetPractice(text='모양이 바뀌었어요.') {
         views.forEach(v => drawings[v].fill(false));
         checked = false; showingAnswer = false;
         document.getElementById('answerBtn').textContent = '정답 보기';
-        setFeedback('idle','✎',text); renderGrids();
+        setWorldFeedback('good','◆',text);
+        setPracticeFeedback('idle','✎','입체 모양이 바뀌었어요. 네 방향을 다시 그려 보세요.');
+        renderGrids();
       }
-      function modelChanged(text) { countEl.textContent = total(); resetPractice(text); }
+      function modelChanged(text) { countEl.textContent = countVisible ? total() : '?'; resetPractice(text); }
 
       function answerFor(view) {
         const result = Array.from({length:SIZE},() => Array(SIZE).fill(false));
@@ -272,7 +289,7 @@
         if (view === 'front') profile = Array.from({length:SIZE},(_,x) => Math.max(...heights.map(row => row[x])));
         else {
           const side = heights.map(row => Math.max(...row));
-          profile = view === 'left' ? [...side].reverse() : side;
+          profile = view === 'right' ? [...side].reverse() : side;
         }
         profile.forEach((h,col) => { for (let level=0;level<h;level++) result[SIZE-1-level][col] = true; });
         return result.flat();
@@ -287,7 +304,7 @@
             button.addEventListener('click',() => {
               drawings[view][i] = !drawings[view][i]; checked = false; showingAnswer = false;
               document.getElementById('answerBtn').textContent = '정답 보기';
-              setFeedback('idle','✎',`${viewNames[view]}에서 본 모습을 그리고 있어요.`); renderGrids();
+              setPracticeFeedback('idle','✎',`${viewNames[view]}에서 본 모습을 그리고 있어요.`); renderGrids();
             });
             grid.appendChild(button);
           }
@@ -322,8 +339,8 @@
           const misses=drawing.reduce((sum,v,i)=>sum+(v!==answer[i]?1:0),0);
           if (!misses) right++; diff+=misses;
         });
-        if (right===4) setFeedback('good','★','네 방향을 모두 바르게 그렸어요!');
-        else setFeedback('try','!',`${right}개 방향이 맞아요. 줄무늬 ${diff}칸을 다시 살펴보세요.`);
+        if (right===4) setPracticeFeedback('good','★','네 방향을 모두 바르게 그렸어요!');
+        else setPracticeFeedback('try','!',`${right}개 방향이 맞아요. 줄무늬 ${diff}칸을 다시 살펴보세요.`);
         renderGrids();
       }
 
@@ -469,11 +486,11 @@
       function addBlock(target) {
         const place=placementFor(target),state=placementState(place);
         if (!place) return;
-        if (state==='outside') { setFeedback('try','!','판 안쪽의 빈 공간을 골라 주세요.');return; }
-        if (state==='limit') { setFeedback('try','!',`한 칸에는 ${MAX_HEIGHT}개까지 쌓을 수 있어요.`);return; }
-        if (state==='unsupported') { setFeedback('try','!','그 공간 아래에 먼저 블록을 쌓아 주세요.');return; }
-        if (state==='occupied') { setFeedback('try','!','이미 블록이 있는 공간이에요.');return; }
-        save();heights[place.y][place.x]++;flash={...place,time:performance.now()};modelChanged('고른 공간에 블록을 쌓았어요.');
+        if (state==='outside') { setWorldFeedback('try','!','판 안쪽의 빈 공간을 골라 주세요.');return; }
+        if (state==='limit') { setWorldFeedback('try','!',`한 칸에는 ${MAX_HEIGHT}개까지 쌓을 수 있어요.`);return; }
+        if (state==='unsupported') { setWorldFeedback('try','!','그 공간 아래가 비어 있어요. 빈 공간부터 채워 주세요.');return; }
+        if (state==='occupied') { setWorldFeedback('try','!','이미 블록이 있는 공간이에요.');return; }
+        save();heights[place.y][place.x]++;flash={...place,time:performance.now()};modelChanged('좋아요! 고른 공간에 블록을 잘 쌓았어요.');
       }
       function breakBlock() {
         if (!pointer||pointer.broken||!pointer.hold) return;
@@ -488,15 +505,16 @@
       canvas.addEventListener('pointercancel',e=>{if(pointer?.id===e.pointerId)pointer=null;canvas.classList.remove('dragging');holdBox.classList.remove('show');});
       canvas.addEventListener('pointerleave',()=>{if(!pointer)hover=null;});canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
-      document.getElementById('undoBtn').addEventListener('click',()=>{const before=history.pop();if(!before){setFeedback('try','!','되돌릴 블록이 없어요.');return;}heights=before;modelChanged('바로 전 모양으로 되돌렸어요.');});
-      document.getElementById('resetViewBtn').addEventListener('click',()=>{yaw=Math.PI/4;pitch=.54;setFeedback('idle','◎','처음 시점으로 돌아왔어요. 빨간 화살표가 앞쪽이에요.');});
+      document.getElementById('undoBtn').addEventListener('click',()=>{const before=history.pop();if(!before){setWorldFeedback('try','!','되돌릴 블록이 없어요.');return;}heights=before;modelChanged('바로 전 모양으로 되돌렸어요.');});
+      countToggle.addEventListener('click',()=>{countVisible=!countVisible;countEl.textContent=countVisible?total():'?';countToggle.setAttribute('aria-expanded',String(countVisible));countToggle.setAttribute('aria-label',countVisible?'블록 개수 가리기':'블록 개수 보기');setWorldFeedback('idle','#',countVisible?`지금까지 블록을 ${total()}개 쌓았어요.`:'블록 개수를 다시 가렸어요.');});
+      document.getElementById('resetViewBtn').addEventListener('click',()=>{yaw=Math.PI/4;pitch=.54;setWorldFeedback('idle','◎','처음 시점으로 돌아왔어요. 빨간 화살표가 앞쪽이에요.');});
       document.getElementById('clearBtn').addEventListener('click',()=>{if(!total())return;save();heights=Array.from({length:SIZE},()=>Array(SIZE).fill(0));modelChanged('블록을 모두 치웠어요.');});
       document.querySelectorAll('[data-preset]').forEach(btn=>btn.addEventListener('click',()=>{save();heights=presets[btn.dataset.preset].map(row=>[...row]);modelChanged(`${btn.textContent} 모양을 불러왔어요.`);}));
       document.getElementById('checkBtn').addEventListener('click',checkAll);
-      document.getElementById('answerBtn').addEventListener('click',e=>{showingAnswer=!showingAnswer;checked=false;e.currentTarget.textContent=showingAnswer?'내 그림 보기':'정답 보기';setFeedback('idle','눈',showingAnswer?'파란 칸이 정답이에요.':'내 그림으로 돌아왔어요.');renderGrids();});
-      document.getElementById('eraseBtn').addEventListener('click',()=>{views.forEach(v=>drawings[v].fill(false));checked=false;showingAnswer=false;document.getElementById('answerBtn').textContent='정답 보기';setFeedback('idle','✎','모눈종이를 모두 지웠어요.');renderGrids();});
+      document.getElementById('answerBtn').addEventListener('click',e=>{showingAnswer=!showingAnswer;checked=false;e.currentTarget.textContent=showingAnswer?'내 그림 보기':'정답 보기';setPracticeFeedback('idle','눈',showingAnswer?'파란 칸이 정답이에요.':'내 그림으로 돌아왔어요.');renderGrids();});
+      document.getElementById('eraseBtn').addEventListener('click',()=>{views.forEach(v=>drawings[v].fill(false));checked=false;showingAnswer=false;document.getElementById('answerBtn').textContent='정답 보기';setPracticeFeedback('idle','✎','모눈종이를 모두 지웠어요.');renderGrids();});
 
-      makeGrids();countEl.textContent=total();renderGrids();requestAnimationFrame(render);
+      makeGrids();countEl.textContent='?';renderGrids();requestAnimationFrame(render);
     })();
   </script>
 </body>
