@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#4f7f35">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -34,6 +34,7 @@
       min-width: 320px;
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
+      touch-action: manipulation;
     }
     body {
       min-height: 100vh;
@@ -45,6 +46,7 @@
       font-family: "Pretendard", "Noto Sans KR", "NanumGothic", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
       line-height: 1.45;
       overscroll-behavior-y: none;
+      touch-action: manipulation;
       -webkit-user-select: none;
       user-select: none;
       -webkit-touch-callout: none;
@@ -120,11 +122,11 @@
     }
     .panel-head h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.025em; }
     .panel-head p { margin: 2px 0 0; font-size: 12px; font-weight: 750; opacity: .92; }
-    .count { flex: none; padding: 6px 10px; color: #402d1b; background: var(--wood-light); border: 3px solid #604025; font-weight: 800; box-shadow: 3px 3px 0 rgba(44,31,19,.2); }
+    .count { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; flex: none; padding: 6px 10px; color: #402d1b; background: var(--wood-light); border: 3px solid #604025; font-weight: 800; line-height: 1; box-shadow: 3px 3px 0 rgba(44,31,19,.2); }
     button.count { cursor: pointer; }
     button.count:hover { background: #ffe39a; }
     button.count:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 rgba(44,31,19,.2); }
-    .count strong { font-size: 20px; }
+    .count strong { display: inline-flex; align-items: center; line-height: 1; font-size: 20px; }
 
     .scene { position: relative; background: #a9ddef; border-bottom: 4px solid var(--line); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
     #worldCanvas { display: block; width: 100%; aspect-ratio: 1.34; cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -244,6 +246,57 @@
       .grids { grid-template-columns: 1fr; }
       .practice-actions { grid-template-columns: 1fr 1fr; }
       .practice-actions .primary { grid-column: 1 / -1; }
+    }
+    @media (min-width: 700px) and (max-width: 1366px) and (any-pointer: coarse) {
+      body.lab-open { height: 100vh; height: 100dvh; overflow: hidden; }
+      .lab-screen {
+        height: 100vh;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        padding-top: max(6px, env(safe-area-inset-top));
+        padding-bottom: max(6px, env(safe-area-inset-bottom));
+      }
+      .lab-screen .titlebar { min-height: 48px; flex: none; }
+      .lab-screen .titlebar h1 { font-size: clamp(22px,2.7vw,29px); }
+      .studio,.camera-studio {
+        min-height: 0;
+        flex: 1 1 auto;
+        grid-template-columns: minmax(0,1.04fr) minmax(0,.96fr);
+        align-items: stretch;
+        gap: 10px;
+        margin-top: 6px;
+      }
+      .lab-screen .panel { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+      .lab-screen .panel-head,.world-controls,.camera-controls,.practice-actions,.camera-actions,.feedback { flex: none; }
+      .lab-screen .panel-head { min-height: 50px; padding: 5px 8px; }
+      .lab-screen .panel-head h2 { font-size: 18px; }
+      .scene,.camera-frame { min-height: 0; flex: 1 1 auto; aspect-ratio: auto; }
+      #worldCanvas { width: 100%; height: 100%; aspect-ratio: auto; }
+      .grids,.camera-grids {
+        min-height: 0;
+        flex: 1 1 auto;
+        grid-template-columns: repeat(2,minmax(0,1fr));
+        grid-template-rows: repeat(2,minmax(0,1fr));
+        gap: 6px;
+        padding: 6px;
+      }
+      .view-card { min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 5px; }
+      .view-title { flex: none; margin-bottom: 4px; }
+      .draw-grid { min-height: 0; width: auto; max-width: 100%; max-height: 100%; flex: 1 1 auto; align-self: center; aspect-ratio: 1; }
+      .world-controls,.camera-controls { padding: 6px 8px; }
+      .presets { gap: 5px; margin-top: 5px; padding-top: 5px; }
+      .practice-actions,.camera-actions { padding: 6px 7px; }
+      .feedback { min-height: 38px; padding: 4px 8px; font-size: 12px; }
+      .feedback b { width: 26px; height: 26px; }
+    }
+    @media (min-width: 700px) and (max-width: 900px) and (orientation: portrait) and (any-pointer: coarse) {
+      .studio,.camera-studio { grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); }
+    }
+    @media (min-width: 700px) and (max-width: 1366px) and (orientation: landscape) and (max-height: 900px) and (any-pointer: coarse) {
+      .lab-screen .panel-head p { display: none; }
+      .lab-screen .panel-head { min-height: 44px; }
+      .lab-screen .titlebar { min-height: 46px; }
     }
     @media (hover: none) and (pointer: coarse) {
       .lab-choice:hover { transform: none; box-shadow: 8px 8px 0 rgba(54,43,29,.22); }
@@ -498,6 +551,7 @@
       }
       function showScreen(screen) {
         homeScreen.hidden=screen!==homeScreen;cameraLab.hidden=screen!==cameraLab;virtualLab.hidden=screen!==virtualLab;
+        document.body.classList.toggle('lab-open',screen!==homeScreen);
         if (screen!==cameraLab) stopCamera(true);
         else if (!cameraStream) updateFeedback(cameraFeedback,'idle','▣','카메라 켜기를 눌러 실물 쌓기나무를 비춰 보세요.');
         if (window.scrollTo) window.scrollTo(0,0);
@@ -764,6 +818,8 @@
       document.addEventListener('contextmenu',e=>e.preventDefault());
       document.addEventListener('selectstart',e=>e.preventDefault());
       document.addEventListener('dragstart',e=>e.preventDefault());
+      let lastTapTime=0,lastTapTarget=null;
+      document.addEventListener('touchend',e=>{const now=Date.now();if(e.target===lastTapTarget&&now-lastTapTime<320)e.preventDefault();lastTapTime=now;lastTapTarget=e.target;},{passive:false});
 
       document.getElementById('undoBtn').addEventListener('click',()=>{const before=history.pop();if(!before){setWorldFeedback('try','!','되돌릴 블록이 없어요.');return;}heights=before;modelChanged('바로 전 모양으로 되돌렸어요.');});
       countToggle.addEventListener('click',()=>{countVisible=!countVisible;countEl.textContent=countVisible?total():'?';countToggle.setAttribute('aria-expanded',String(countVisible));countToggle.setAttribute('aria-label',countVisible?'블록 개수 가리기':'블록 개수 보기');setWorldFeedback('idle','#',countVisible?`지금까지 블록을 ${total()}개 쌓았어요.`:'블록 개수를 다시 가렸어요.');});
